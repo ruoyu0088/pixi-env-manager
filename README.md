@@ -1,5 +1,7 @@
 # Pixi Environment Manager
 
+![Pixi Environment Manager - English interface](docs/screenshot-en.png)
+
 [中文](#中文) · [English](#english) · [日本語](#日本語)
 
 ---
