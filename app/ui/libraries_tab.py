@@ -603,10 +603,17 @@ class LibrariesTab(ttk.Frame):
         )
 
     def _copy_selected_name(self) -> None:
-        package = self._selected_package()
-        if package:
+        selected = set(self.tree.selection())
+        if not selected:
+            return
+        names = [
+            package.name
+            for key, package in self.visible.items()
+            if key in selected
+        ]
+        if names:
             self.clipboard_clear()
-            self.clipboard_append(package.name)
+            self.clipboard_append(" ".join(names))
 
     # ------------------------------------------------------------------
     def query_selected_latest(self) -> None:
