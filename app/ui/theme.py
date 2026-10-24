@@ -344,6 +344,10 @@ class ThemeManager:
             "TNotebook.Tab",
             background=[("selected", colors["panel"])],
             foreground=[("selected", colors["accent"])],
+            # The clam theme maps the selected tab to a smaller padding
+            # (6,4,6,2), which makes the active tab visibly shorter.  Keep the
+            # same box for every state.
+            padding=[("selected", (13, 7))],
         )
 
         style.configure(
