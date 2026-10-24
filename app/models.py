@@ -184,6 +184,9 @@ class WorkspaceData:
     packages_by_env: Dict[str, List[Package]] = field(default_factory=dict)
     package_errors: Dict[str, str] = field(default_factory=dict)
     task_error: str = ""
+    # missing / fresh / stale / unknown.  Determined by pixi lock --check
+    # when the manifest is newer than the lock file.
+    lock_state: str = "unknown"
 
     @property
     def env_names(self) -> List[str]:
@@ -234,12 +237,13 @@ class WorkspaceData:
         return self.lock_path.is_file()
 
     def lock_is_stale(self) -> bool:
-        if not self.lock_exists:
-            return True
-        try:
-            return self.manifest.stat().st_mtime > self.lock_path.stat().st_mtime
-        except OSError:
-            return True
+        return self.lock_state == "stale"
+
+    def lock_is_missing(self) -> bool:
+        return not self.lock_exists
+
+    def lock_is_unknown(self) -> bool:
+        return self.lock_exists and self.lock_state == "unknown"
 
     def python_programs(self, env_name: str, state: Any) -> List[Dict[str, Any]]:
         return state.python_runs(str(self.manifest), env_name)

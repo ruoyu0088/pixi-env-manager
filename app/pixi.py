@@ -370,7 +370,39 @@ class PixiClient:
                 )
             except PixiError as exc:
                 workspace.package_errors[selected] = str(exc)
+
+        try:
+            workspace.lock_state = self.lock_state(manifest)
+        except PixiError:
+            workspace.lock_state = "unknown"
         return workspace
+
+    def lock_state(self, manifest: Path) -> str:
+        """Return missing/fresh/stale/unknown for the workspace lock file.
+
+        Modification times alone are not reliable: ``pixi lock`` does not
+        rewrite a lock file whose content is already current.  When the
+        manifest looks newer, ask Pixi's authoritative ``--check`` command
+        instead of showing a false "stale lock" warning.
+        """
+        lock_path = manifest.parent / "pixi.lock"
+        if not lock_path.is_file():
+            return "missing"
+        try:
+            if manifest.stat().st_mtime <= lock_path.stat().st_mtime:
+                return "fresh"
+        except OSError:
+            return "unknown"
+
+        result = self._run(
+            ["lock", "--manifest-path", str(manifest), "--check"],
+            timeout=300,
+        )
+        if result.returncode == 0:
+            return "fresh"
+        if result.returncode == 1:
+            return "stale"
+        return "unknown"
 
     def load_packages(self, manifest: Path, environment: str) -> List[Package]:
         return self.packages(manifest, environment)

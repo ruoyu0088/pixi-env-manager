@@ -196,6 +196,8 @@ class OverviewTab(ttk.Frame):
             self.lock_var.set("不存在（尚未安装 / 锁定）")
         elif workspace.lock_is_stale():
             self.lock_var.set("清单比 pixi.lock 新（建议重新锁定）")
+        elif workspace.lock_is_unknown():
+            self.lock_var.set("锁文件存在（无法确认是否最新）")
         else:
             self.lock_var.set(str(workspace.lock_path))
 
@@ -236,7 +238,9 @@ class OverviewTab(ttk.Frame):
         if not workspace.lock_exists:
             warnings.append("还没有 pixi.lock，建议执行一次“安装 / 更新环境”。")
         elif workspace.lock_is_stale():
-            warnings.append("pixi.toml 比 pixi.lock 新，锁文件可能已过期。")
+            warnings.append("pixi.lock 已过期，建议重新锁定环境。")
+        elif workspace.lock_is_unknown():
+            warnings.append("无法确认 pixi.lock 是否最新，建议重新锁定。")
         error = workspace.package_errors.get(self.env_name)
         if error:
             warnings.append("读取库列表失败：" + error.splitlines()[0])
