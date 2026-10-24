@@ -133,6 +133,47 @@ def _version_from_change(name: str, record: Any) -> str:
     return ""
 
 
+def latest_conda_version(
+    data: Any, package_name: str, platform: str
+) -> str:
+    """Pick the newest conda version from a ``pixi search --json`` payload.
+
+    Pixi reports platform-specific and ``noarch`` records separately.  For
+    pure-Python packages the current release is often only present in
+    ``noarch`` while the selected platform still has old builds (for example
+    ``awkward``: win-64 tops out at 1.10.3, noarch at 2.14.0).  Both sets must
+    be considered.
+    """
+
+    if not isinstance(data, dict):
+        return ""
+    keys: List[str] = []
+    if platform:
+        keys.append(platform)
+    if "noarch" not in keys:
+        keys.append("noarch")
+
+    records: List[Dict[str, Any]] = []
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, list):
+            records.extend(item for item in value if isinstance(item, dict))
+    if not records:
+        for value in data.values():
+            if isinstance(value, list):
+                records.extend(item for item in value if isinstance(item, dict))
+
+    wanted = (package_name or "").lower()
+    versions = {
+        str(item.get("version"))
+        for item in records
+        if str(item.get("name", "")).lower() == wanted and item.get("version")
+    }
+    if not versions:
+        return ""
+    return sorted(versions, key=cmp_to_key(compare_versions), reverse=True)[0]
+
+
 class PixiClient:
     def __init__(self, executable: Optional[str] = None):
         self.executable = executable or find_pixi()
@@ -350,25 +391,10 @@ class PixiClient:
         if platform:
             args.extend(["--platform", platform])
         data = self.capture_json(args, timeout=180)
-        if not isinstance(data, dict):
-            raise PixiError("pixi search 返回的数据格式不正确。")
-        records: List[Dict[str, Any]] = []
-        if platform and isinstance(data.get(platform), list):
-            records = [item for item in data[platform] if isinstance(item, dict)]
-        else:
-            for value in data.values():
-                if isinstance(value, list):
-                    records.extend(item for item in value if isinstance(item, dict))
-        versions = [
-            str(item.get("version"))
-            for item in records
-            if str(item.get("name", "")).lower() == package.name.lower()
-            and item.get("version")
-        ]
-        if not versions:
+        latest = latest_conda_version(data, package.name, platform)
+        if not latest:
             raise PixiError("在配置的频道中找不到包“{}”。".format(package.name))
-        versions.sort(key=cmp_to_key(compare_versions), reverse=True)
-        return versions[0]
+        return latest
 
     def latest_pypi(self, package: Package) -> str:
         source = (package.source or "").lower()

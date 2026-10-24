@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from app.models import EnvInfo, Package, parse_packages, parse_tasks
-from app.pixi import _extract_json, _version_from_change
+from app.pixi import _extract_json, _version_from_change, latest_conda_version
 
 
 class PixiParsingTests(unittest.TestCase):
@@ -22,6 +22,35 @@ class PixiParsingTests(unittest.TestCase):
 
     def test_version_from_change_field(self):
         self.assertEqual(_version_from_change("numpy", {"version": "2.5.4"}), "2.5.4")
+
+    def test_latest_conda_merges_noarch_and_platform(self):
+        data = {
+            "win-64": [
+                {"name": "awkward", "version": "1.10.3"},
+                {"name": "awkward", "version": "1.10.2"},
+            ],
+            "noarch": [
+                {"name": "awkward", "version": "2.14.0"},
+                {"name": "awkward", "version": "2.13.0"},
+            ],
+        }
+        self.assertEqual(latest_conda_version(data, "awkward", "win-64"), "2.14.0")
+
+    def test_latest_conda_keeps_platform_specific_numpy(self):
+        data = {
+            "win-64": [{"name": "numpy", "version": "2.5.4"}],
+            "noarch": [{"name": "numpy", "version": "1.0.0"}],
+        }
+        self.assertEqual(latest_conda_version(data, "numpy", "win-64"), "2.5.4")
+
+    def test_latest_conda_prefers_newer_noarch(self):
+        data = {
+            "win-64": [{"name": "beautifulsoup4", "version": "4.9.1"}],
+            "noarch": [{"name": "beautifulsoup4", "version": "4.15.0"}],
+        }
+        self.assertEqual(
+            latest_conda_version(data, "beautifulsoup4", "win-64"), "4.15.0"
+        )
 
     def test_parse_packages(self):
         packages = parse_packages(
