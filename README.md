@@ -111,7 +111,10 @@ C:\some\python.exe .\pixi_env_manager.py
   - `删除当前环境…`：`default` 不能删除；可选同时清理已安装的 `.pixi` 环境目录
   - 添加/删除都会保留 `pixi.toml` 原有注释；删除只移除清单定义，不自动改 lock
 - `刷新`：重新读取环境、包列表和 task。
-- `设置`：Pixi 路径、界面语言、主题、控制台最大行数、清空历史。
+- `设置`：Pixi 路径、终端程序、界面语言、主题、控制台最大行数、清空历史。
+  - 终端留空时使用 PowerShell
+  - 可填 `powershell.exe`、`pwsh.exe`、`cmd.exe`、`wt.exe` 或完整路径
+  - 也支持模板，例如 `wt.exe -d "{cwd}" powershell.exe -NoExit -Command {command}`
 
 ### 左侧快速启动
 
