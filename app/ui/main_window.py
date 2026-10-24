@@ -91,7 +91,7 @@ class MainWindow:
         self.root.bind("<Control-o>", lambda _event: self.open_environment_dialog())
         self.root.bind("<F5>", lambda _event: self.refresh_current())
         self.root.bind("<Control-b>", self._toggle_sidebar_event)
-        self.root.bind("<Control-l>", self._toggle_console_event)
+        self.root.bind("<Control-j>", self._toggle_console_event)
         self._apply_theme(str(self.state.get_setting("theme", "light")))
         self._rebuild_recent_menu()
         self._refresh_pixi_badge()
