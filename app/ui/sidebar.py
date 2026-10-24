@@ -112,7 +112,17 @@ class QuickSidebar(ttk.Frame):
             style="Play.TButton",
             command=lambda t=task: self.app.run_task(t),
         )
-        play.pack(side="left", padx=(0, 6), anchor="n")
+        play.pack(side="left", padx=(0, 4), anchor="n")
+        terminal = ttk.Button(
+            row,
+            text=">_",
+            width=2,
+            style="Play.TButton",
+            command=lambda t=task: self.app.run_task(t, terminal=True),
+        )
+        terminal.pack(side="left", padx=(0, 6), anchor="n")
+        Tooltip(play, i18n.t("运行"))
+        Tooltip(terminal, i18n.t("在终端中运行"))
         text_frame = ttk.Frame(row, style="Row.TFrame")
         text_frame.pack(side="left", fill="x", expand=True)
         name = ttk.Label(
@@ -169,6 +179,11 @@ class QuickSidebar(ttk.Frame):
             lambda event, t=task: self._task_menu(event, t),
             add="+",
         )
+        terminal.bind(
+            "<Button-3>",
+            lambda event, t=task: self._task_menu(event, t),
+            add="+",
+        )
         self._task_rows.append(row)
 
     def _task_menu(self, event, task: TaskInfo) -> None:
@@ -220,7 +235,17 @@ class QuickSidebar(ttk.Frame):
             style="Play.TButton",
             command=lambda r=run: self.app.run_python_run(r),
         )
-        play.pack(side="left", padx=(0, 6), anchor="n")
+        play.pack(side="left", padx=(0, 4), anchor="n")
+        terminal = ttk.Button(
+            row,
+            text=">_",
+            width=2,
+            style="Play.TButton",
+            command=lambda r=run: self.app.run_python_run(r, terminal=True),
+        )
+        terminal.pack(side="left", padx=(0, 6), anchor="n")
+        Tooltip(play, i18n.t("运行"))
+        Tooltip(terminal, i18n.t("在终端中运行"))
         text_frame = ttk.Frame(row, style="Row.TFrame")
         text_frame.pack(side="left", fill="x", expand=True)
         name = ttk.Label(
@@ -272,6 +297,11 @@ class QuickSidebar(ttk.Frame):
                 add="+",
             )
         play.bind(
+            "<Button-3>",
+            lambda event, r=run: self._python_menu(event, r),
+            add="+",
+        )
+        terminal.bind(
             "<Button-3>",
             lambda event, r=run: self._python_menu(event, r),
             add="+",
