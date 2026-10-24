@@ -276,6 +276,7 @@ class MainWindow:
             console_max_lines=int(self.state.get_setting("console_max_lines", 50000)),
             history_count=len(self.state.recent()),
             language=str(self.state.get_setting("language", "zh") or "zh"),
+            terminal=str(self.state.get_setting("terminal", "") or ""),
         )
         self.root.wait_window(dialog)
         if not dialog.result:
@@ -284,6 +285,9 @@ class MainWindow:
         old_language = str(self.state.get_setting("language", "zh") or "zh")
         self.state.set_setting("pixi_path", result["pixi_path"], save=False)
         self.state.set_setting("language", result["language"], save=False)
+        self.state.set_setting(
+            "terminal", str(result.get("terminal") or ""), save=False
+        )
         self.state.set_setting("console_max_lines", result["console_max_lines"], save=False)
         self.state.set_setting("theme", str(result["theme"]), save=False)
         self.state.save()
@@ -1012,6 +1016,7 @@ class MainWindow:
                 [self.pixi.require()] + full_args,
                 cwd=self.workspace.root if self.workspace else None,
                 title=title,
+                terminal=str(self.state.get_setting("terminal", "") or ""),
             )
         except OSError as exc:
             self._report_error("无法打开终端", exc)

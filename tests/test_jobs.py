@@ -4,7 +4,12 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from app.jobs import JobManager
+from app.jobs import (
+    JobManager,
+    build_terminal_argv,
+    cmd_command_line,
+    terminal_command_line,
+)
 from app.ui.main_window import MainWindow
 
 
@@ -59,6 +64,52 @@ class MutatingCommandTests(unittest.TestCase):
                 "test",
             ],
         )
+
+    def test_terminal_defaults_to_powershell(self):
+        args = ["pixi", "run", "demo"]
+        command = build_terminal_argv(
+            args, cwd=Path(r"C:\ws"), title="Demo", terminal=""
+        )
+        self.assertEqual(command[0], "powershell.exe")
+        self.assertEqual(command[1:3], ["-NoExit", "-Command"])
+        self.assertEqual(command[3], terminal_command_line(args, "Demo"))
+
+    def test_terminal_cmd(self):
+        args = ["pixi", "run", "demo"]
+        command = build_terminal_argv(
+            args, cwd=Path(r"C:\ws"), title="Demo", terminal="cmd.exe"
+        )
+        self.assertEqual(command[0], "cmd.exe")
+        self.assertEqual(command[1], "/K")
+        self.assertEqual(command[2], cmd_command_line(args, "Demo"))
+
+    def test_terminal_windows_terminal(self):
+        args = ["pixi", "run", "demo"]
+        command = build_terminal_argv(
+            args, cwd=Path(r"C:\ws"), title="Demo", terminal="wt.exe"
+        )
+        self.assertEqual(command[:4], ["wt.exe", "-d", r"C:\ws", "powershell.exe"])
+        self.assertIn("-Command", command)
+
+    def test_terminal_template(self):
+        args = ["pixi", "run", "demo"]
+        command = build_terminal_argv(
+            args,
+            cwd=Path(r"C:\ws"),
+            title="Demo",
+            terminal='wt.exe -d {cwd} powershell.exe -NoExit -Command "{command}"',
+        )
+        self.assertEqual(command[:4], ["wt.exe", "-d", r"C:\ws", "powershell.exe"])
+        self.assertEqual(command[4:6], ["-NoExit", "-Command"])
+        self.assertEqual(command[6], terminal_command_line(args, "Demo"))
+
+    def test_terminal_extra_arguments(self):
+        command = build_terminal_argv(
+            ["pixi"],
+            cwd=Path(r"C:\ws"),
+            terminal="powershell.exe -NoLogo",
+        )
+        self.assertEqual(command[:3], ["powershell.exe", "-NoLogo", "-NoExit"])
 
     def test_sequence_runs_commands_in_order(self):
         manager = JobManager()

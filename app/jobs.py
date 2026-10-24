@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from .util import strip_ansi
+from .util import split_user_args, strip_ansi
 
 
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
@@ -345,21 +345,94 @@ def terminal_command_line(args: Sequence[str], title: str = "Pixi") -> str:
     return prefix + command
 
 
+def cmd_command_line(args: Sequence[str], title: str = "Pixi") -> str:
+    return subprocess.list2cmdline([str(item) for item in args])
+
+
+def _terminal_kind(executable: str) -> str:
+    name = Path(executable).name.lower()
+    if name in ("powershell.exe", "powershell", "pwsh.exe", "pwsh"):
+        return "powershell"
+    if name in ("cmd.exe", "cmd"):
+        return "cmd"
+    if name in ("wt.exe", "wt", "windowsterminal.exe"):
+        return "wt"
+    return "custom"
+
+
+def build_terminal_argv(
+    args: Sequence[str],
+    cwd: Optional[Path] = None,
+    title: str = "Pixi",
+    terminal: str = "",
+) -> List[str]:
+    """Build the command line for the configured terminal.
+
+    An empty setting keeps the previous PowerShell behavior.  The setting may
+    be a simple executable (``cmd.exe``, ``wt.exe``, ``pwsh.exe``), that
+    executable with arguments, or a small template using ``{command}``,
+    ``{cmd}``, ``{cwd}`` and ``{title}``.
+    """
+
+    cwd_text = str(cwd or Path.cwd())
+    powershell_command = terminal_command_line(args, title=title)
+    cmd_command = cmd_command_line(args, title=title)
+    spec = (terminal or "").strip()
+    if spec and " " in spec and Path(spec).is_file():
+        tokens = [spec]
+    else:
+        tokens = split_user_args(spec) if spec else ["powershell.exe"]
+    if not tokens:
+        tokens = ["powershell.exe"]
+
+    has_template = any(
+        placeholder in token
+        for token in tokens
+        for placeholder in ("{command}", "{cmd}", "{cwd}", "{title}")
+    )
+    if has_template:
+        return [
+            token.replace("{command}", powershell_command)
+            .replace("{cmd}", cmd_command)
+            .replace("{cwd}", cwd_text)
+            .replace("{title}", title)
+            for token in tokens
+        ]
+
+    kind = _terminal_kind(tokens[0])
+    if kind == "cmd":
+        return tokens + ["/K", cmd_command]
+    if kind == "wt":
+        return tokens + [
+            "-d",
+            cwd_text,
+            "powershell.exe",
+            "-NoExit",
+            "-Command",
+            powershell_command,
+        ]
+    # PowerShell-compatible terminals and custom executables.
+    return tokens + ["-NoExit", "-Command", powershell_command]
+
+
 def open_terminal(
     args: Sequence[str],
     cwd: Optional[Path] = None,
     title: str = "Pixi",
+    terminal: str = "",
 ) -> subprocess.Popen:
-    """Open a new PowerShell window running *args*.
+    """Open a new terminal window running *args*.
 
     Interactive tasks (Jupyter, shells) are much more usable in a real
     terminal, so they are intentionally not captured by the GUI job manager.
     """
 
     if os.name == "nt":
-        command = terminal_command_line(args, title=title)
+        command = build_terminal_argv(
+            args, cwd=cwd, title=title, terminal=terminal
+        )
         return subprocess.Popen(
-            ["powershell.exe", "-NoExit", "-Command", command],
+            command,
             cwd=str(cwd) if cwd else None,
             env=child_env(),
             creationflags=CREATE_NEW_CONSOLE,

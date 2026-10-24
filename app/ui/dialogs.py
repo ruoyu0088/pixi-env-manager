@@ -405,7 +405,7 @@ class NewWorkspaceDialog(tk.Toplevel):
                 initial = str(Path.home())
         path = filedialog.askdirectory(
             parent=self,
-            title="选择工作区目录",
+            title=i18n.t("选择工作区目录"),
             initialdir=initial or str(Path.home()),
             mustexist=False,
         )
@@ -792,6 +792,7 @@ class SettingsDialog(tk.Toplevel):
         console_max_lines: int,
         history_count: int = 0,
         language: str = "zh",
+        terminal: str = "",
     ):
         super().__init__(parent)
         self.title("设置")
@@ -851,6 +852,28 @@ class SettingsDialog(tk.Toplevel):
             style="Muted.TLabel",
         ).grid(row=6, column=1, columnspan=2, sticky="w", padx=(12, 0))
 
+        ttk.Label(frame, text="终端（可选）", style="CardTitle.TLabel").grid(
+            row=7, column=0, sticky="w", pady=(16, 4)
+        )
+        self.terminal_var = tk.StringVar(value=terminal)
+        ttk.Combobox(
+            frame,
+            textvariable=self.terminal_var,
+            values=("", "powershell.exe", "pwsh.exe", "cmd.exe", "wt.exe"),
+            state="normal",
+            width=48,
+        ).grid(row=8, column=0, columnspan=2, sticky="ew", pady=(4, 2))
+        ttk.Button(frame, text="浏览…", command=self._browse_terminal).grid(
+            row=8, column=2, padx=(8, 0)
+        )
+        ttk.Label(
+            frame,
+            text="留空使用 PowerShell；可填 powershell.exe、cmd.exe、wt.exe、完整路径，"
+            "或带 {command}/{cmd}/{cwd}/{title} 的自定义模板。",
+            style="Muted.TLabel",
+            wraplength=680,
+        ).grid(row=9, column=0, columnspan=3, sticky="w")
+
         ttk.Label(frame, text="控制台最大行数", style="CardTitle.TLabel").grid(
             row=3, column=1, sticky="w", pady=(16, 4)
         )
@@ -860,7 +883,7 @@ class SettingsDialog(tk.Toplevel):
         ).grid(row=4, column=1, sticky="w", padx=(12, 0))
 
         action_frame = ttk.Frame(frame)
-        action_frame.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(20, 0))
+        action_frame.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(20, 0))
         ttk.Button(
             action_frame,
             text="清空打开历史",
@@ -905,6 +928,19 @@ class SettingsDialog(tk.Toplevel):
         if path:
             self.pixi_var.set(path)
 
+    def _browse_terminal(self) -> None:
+        path = filedialog.askopenfilename(
+            parent=self,
+            title=i18n.t("选择终端程序"),
+            filetypes=[
+                (i18n.t("程序"), "*.exe"),
+                ("Windows Terminal", "wt.exe"),
+                (i18n.t("所有文件"), "*.*"),
+            ],
+        )
+        if path:
+            self.terminal_var.set('"{}"'.format(path) if " " in path else path)
+
     def _clear_history(self) -> None:
         if messagebox.askyesno(
             "清空历史",
@@ -932,5 +968,6 @@ class SettingsDialog(tk.Toplevel):
             "console_max_lines": lines,
             "clear_history": bool(getattr(self, "_clear_requested", False)),
             "language": language_code,
+            "terminal": self.terminal_var.get().strip(),
         }
         self.destroy()
