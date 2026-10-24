@@ -19,10 +19,12 @@ from ..models import Package, TaskInfo, WorkspaceData, manifest_for_path
 from ..pixi import PixiClient, PixiError, find_pixi
 from ..state import AppState
 from ..util import shorten_path, split_user_args, truncate_text
+from ..workspace_init import build_init_args, default_platform
 from .commands_tab import CommandsTab
 from .console_panel import ConsolePanel
 from .dialogs import (
     AddEnvironmentDialog,
+    NewWorkspaceDialog,
     OpenEnvironmentDialog,
     RemoveEnvironmentDialog,
     SettingsDialog,
@@ -383,6 +385,71 @@ class MainWindow:
         self.root.wait_window(dialog)
         if dialog.result:
             self.open_environment(Path(dialog.result))
+        elif dialog.new_workspace_path is not None:
+            self.open_new_workspace_dialog(Path(dialog.new_workspace_path))
+
+    def open_new_workspace_dialog(self, initial_path: Path) -> None:
+        if self._loading or self.job_manager.busy:
+            messagebox.showinfo(
+                "任务正在运行",
+                "请先停止所有运行中的任务并等待刷新完成，再新建工作区。",
+                parent=self.root,
+            )
+            return
+        if self.workspace is not None and self.editor_tab.is_dirty:
+            messagebox.showinfo(
+                "未保存的修改",
+                "请先保存或放弃当前清单的修改，再新建工作区。",
+                parent=self.root,
+            )
+            return
+        platform = (
+            self.workspace.platform if self.workspace else default_platform()
+        )
+        dialog = NewWorkspaceDialog(
+            self.root,
+            initial_path=str(initial_path),
+            default_platform=platform or default_platform(),
+        )
+        self.root.wait_window(dialog)
+        if dialog.result:
+            self.create_new_workspace(dialog.result)
+
+    def create_new_workspace(self, result: Dict[str, object]) -> None:
+        if not self.pixi.available:
+            messagebox.showerror(
+                "找不到 Pixi",
+                "请先在“设置”中指定 pixi.exe，或把 Pixi 加入 PATH。",
+                parent=self.root,
+            )
+            return
+        if self._loading or self.job_manager.has_mutating():
+            messagebox.showinfo(
+                "任务正在运行",
+                "同一时间只允许一个会修改环境/清单的 pixi 命令。\n请等待当前修改命令完成。",
+                parent=self.root,
+            )
+            return
+        path = Path(str(result["path"]))
+        channels = [str(item) for item in result.get("channels", [])]
+        platforms = [str(item) for item in result.get("platforms", [])]
+        args = build_init_args(path, channels, platforms)
+        title = "新建工作区 {}".format(path.name)
+        try:
+            job = self.job_manager.start(
+                title,
+                [self.pixi.require()] + args,
+                cwd=path.parent if path.parent.exists() else None,
+                extra={
+                    "workspace_init": str(path),
+                    "mutating": True,
+                },
+            )
+        except Exception as exc:
+            self._report_error("无法启动命令", exc)
+            return
+        self._job_started(job)
+        self.set_status("正在创建 {}".format(path))
 
     def open_environment(
         self, path: Path, preferred_env: str = "", add_recent: bool = True
@@ -990,6 +1057,25 @@ class MainWindow:
             self.sidebar.refresh()
         if job.cancelled:
             self.set_status("{} 已停止".format(job.title))
+            return
+        workspace_init = str(job.extra.get("workspace_init") or "")
+        if workspace_init:
+            target = Path(workspace_init)
+            manifest = target / "pixi.toml"
+            if event.returncode == 0 and manifest.is_file():
+                self.state.set_base_mode(manifest, True)
+                self.open_environment(
+                    manifest, preferred_env="default", add_recent=True
+                )
+            elif event.returncode == 0:
+                self.set_status(
+                    "初始化结束，但没有找到 {}".format(manifest), danger=True
+                )
+            else:
+                self.set_status(
+                    "{} 失败，退出码 {}".format(job.title, event.returncode),
+                    danger=True,
+                )
             return
         action = job.extra.get("environment_action") or {}
         refresh_manifest = str(job.extra.get("refresh_manifest") or "")

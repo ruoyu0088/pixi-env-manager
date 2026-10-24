@@ -124,6 +124,7 @@ class OpenEnvironmentDialog(tk.Toplevel):
         self.transient(parent)
         self.resizable(True, False)
         self.result: Optional[str] = None
+        self.new_workspace_path: Optional[str] = None
         self.initial_dir = initial_dir or str(Path.home())
 
         frame = ttk.Frame(self, padding=16)
@@ -156,7 +157,10 @@ class OpenEnvironmentDialog(tk.Toplevel):
         ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=4, column=0, columnspan=4, sticky="e", pady=(16, 0))
+        buttons.grid(row=4, column=0, columnspan=4, sticky="ew", pady=(16, 0))
+        ttk.Button(
+            buttons, text="新建工作区…", command=self._new_workspace
+        ).pack(side="left")
         ttk.Button(buttons, text="取消", command=self.destroy).pack(
             side="right", padx=(8, 0)
         )
@@ -211,20 +215,293 @@ class OpenEnvironmentDialog(tk.Toplevel):
         if path:
             self.path_var.set(path)
 
+    def _new_workspace(self) -> None:
+        raw = self.path_var.get().strip().strip('"')
+        if raw:
+            candidate = Path(raw).expanduser()
+            if candidate.is_file():
+                raw = str(candidate.parent)
+        self.new_workspace_path = raw or self.initial_dir
+        self.destroy()
+
     def _accept(self) -> None:
         raw = self.path_var.get().strip().strip('"')
         if not raw:
             messagebox.showwarning("路径为空", "请选择或输入工作区路径。", parent=self)
             return
-        manifest = manifest_for_path(Path(raw))
-        if manifest is None:
+        path = Path(raw).expanduser()
+        if path.exists() and not path.is_dir():
             messagebox.showerror(
-                "找不到 Pixi 清单",
-                "该路径下没有 pixi.toml 或 pyproject.toml。",
+                "路径无效", "目标路径不是目录。", parent=self
+            )
+            return
+        manifest = manifest_for_path(path)
+        if manifest is not None:
+            self.result = str(manifest)
+            self.destroy()
+            return
+        if path.exists():
+            if not messagebox.askyesno(
+                "没有 Pixi 清单",
+                "该目录下没有 pixi.toml 或 pyproject.toml。\n\n"
+                "是否创建新的 Pixi 工作区？",
+                parent=self,
+            ):
+                return
+            self.new_workspace_path = str(path)
+            self.destroy()
+            return
+        if not messagebox.askyesno(
+            "目录不存在",
+            "目录不存在：\n{}\n\n是否创建该目录并初始化 Pixi 工作区？".format(path),
+            parent=self,
+        ):
+            return
+        self.new_workspace_path = str(path)
+        self.destroy()
+
+
+class NewWorkspaceDialog(tk.Toplevel):
+    def __init__(
+        self,
+        parent,
+        initial_path: str = "",
+        default_platform: str = "win-64",
+    ):
+        super().__init__(parent)
+        self.title("新建 Pixi 工作区")
+        self.transient(parent)
+        self.resizable(True, False)
+        self.result: Optional[Dict[str, object]] = None
+        self.initial_path = initial_path
+        self.default_platform = default_platform
+        self.platform_vars: Dict[str, tk.BooleanVar] = {}
+
+        frame = ttk.Frame(self, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="新建 Pixi 工作区", style="CardTitle.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w"
+        )
+        ttk.Label(
+            frame,
+            text="只会创建 pixi.toml；不安装依赖，创建后进入基础依赖视图。",
+            style="MutedCard.TLabel",
+            wraplength=680,
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(3, 12))
+
+        ttk.Label(frame, text="目录", style="Muted.TLabel").grid(
+            row=2, column=0, sticky="w", pady=4
+        )
+        self.path_var = tk.StringVar(value=initial_path)
+        self.path_entry = ttk.Entry(frame, textvariable=self.path_var, width=66)
+        self.path_entry.grid(row=2, column=1, sticky="ew", pady=4)
+        ttk.Button(frame, text="选择目录…", command=self._browse).grid(
+            row=2, column=2, padx=(8, 0), pady=4
+        )
+        self.name_var = tk.StringVar(value="")
+        ttk.Label(frame, text="工作区名称", style="Muted.TLabel").grid(
+            row=3, column=0, sticky="w", pady=4
+        )
+        ttk.Label(
+            frame,
+            textvariable=self.name_var,
+            style="Card.TLabel",
+        ).grid(row=3, column=1, columnspan=2, sticky="w", pady=4)
+        self.preview_var = tk.StringVar(value="")
+        self.preview_label = ttk.Label(
+            frame,
+            textvariable=self.preview_var,
+            style="MutedCard.TLabel",
+            wraplength=680,
+        )
+        self.preview_label.grid(
+            row=4, column=0, columnspan=3, sticky="w", pady=(0, 8)
+        )
+
+        ttk.Label(frame, text="频道", style="Muted.TLabel").grid(
+            row=5, column=0, sticky="w", pady=4
+        )
+        self.channels_var = tk.StringVar(value="conda-forge")
+        ttk.Entry(frame, textvariable=self.channels_var, width=48).grid(
+            row=5, column=1, columnspan=2, sticky="ew", pady=4
+        )
+        ttk.Label(
+            frame,
+            text="多个频道用逗号分隔，例如 conda-forge,bioconda。",
+            style="MutedCard.TLabel",
+        ).grid(row=6, column=1, columnspan=2, sticky="w")
+
+        ttk.Label(frame, text="平台", style="Muted.TLabel").grid(
+            row=7, column=0, sticky="nw", pady=(10, 4)
+        )
+        platform_frame = ttk.Frame(frame)
+        platform_frame.grid(
+            row=7, column=1, columnspan=2, sticky="w", pady=(10, 4)
+        )
+        platforms = ("win-64", "linux-64", "osx-64", "osx-arm64")
+        if default_platform and default_platform not in platforms:
+            platforms = (default_platform,) + platforms
+        for index, name in enumerate(platforms):
+            var = tk.BooleanVar(value=name == default_platform)
+            self.platform_vars[name] = var
+            ttk.Checkbutton(
+                platform_frame, text=name, variable=var
+            ).grid(row=0, column=index, sticky="w", padx=(0, 14))
+        ttk.Label(
+            frame,
+            text="至少选择一个平台；默认使用当前系统平台。",
+            style="MutedCard.TLabel",
+        ).grid(row=8, column=1, columnspan=2, sticky="w")
+
+        ttk.Label(
+            frame,
+            text="Pixi 会同时创建 .gitignore 和 .gitattributes；工作区名称由目录名决定。",
+            style="MutedCard.TLabel",
+            wraplength=680,
+        ).grid(row=9, column=0, columnspan=3, sticky="w", pady=(12, 0))
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=10, column=0, columnspan=3, sticky="e", pady=(16, 0))
+        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(
+            buttons,
+            text="创建",
+            style="Accent.TButton",
+            command=self._accept,
+        ).pack(side="right", padx=(0, 8))
+
+        frame.columnconfigure(1, weight=1)
+        self.path_var.trace_add("write", lambda *_: self._update_preview())
+        self.bind("<Escape>", lambda _event: self.destroy())
+        self.grab_set()
+        self.update_idletasks()
+        self._center(parent)
+        self._update_preview()
+        i18n.localize_widget_tree(self)
+        self.path_entry.focus_set()
+
+    def _center(self, parent) -> None:
+        try:
+            px = parent.winfo_rootx()
+            py = parent.winfo_rooty()
+            self.geometry(
+                "+{}+{}".format(
+                    px + max(0, (parent.winfo_width() - self.winfo_width()) // 2),
+                    py + max(0, (parent.winfo_height() - self.winfo_height()) // 2),
+                )
+            )
+        except tk.TclError:
+            pass
+
+    def _browse(self) -> None:
+        initial = self.path_var.get().strip() or self.initial_path
+        if initial:
+            candidate = Path(initial).expanduser()
+            if candidate.exists():
+                initial = str(candidate.parent if candidate.is_file() else candidate)
+            elif candidate.parent.exists():
+                initial = str(candidate.parent)
+            else:
+                initial = str(Path.home())
+        path = filedialog.askdirectory(
+            parent=self,
+            title="选择工作区目录",
+            initialdir=initial or str(Path.home()),
+            mustexist=False,
+        )
+        if path:
+            self.path_var.set(path)
+
+    def _update_preview(self) -> None:
+        raw = self.path_var.get().strip().strip('"')
+        if not raw:
+            self.name_var.set("—")
+            self.preview_var.set("请选择一个目录。")
+            return
+        path = Path(raw).expanduser()
+        self.name_var.set(path.name or "—")
+        if path.exists() and not path.is_dir():
+            self.preview_var.set("目标路径已存在且不是目录。")
+        elif path.exists() and manifest_for_path(path) is not None:
+            self.preview_var.set("目录中已有 Pixi 清单，请直接打开。")
+        elif path.exists() and (path / "pyproject.toml").is_file():
+            self.preview_var.set(
+                "目录中已有 pyproject.toml；新建向导只创建 pixi.toml。"
+            )
+        elif path.exists():
+            try:
+                nonempty = any(path.iterdir())
+            except OSError:
+                nonempty = False
+            self.preview_var.set(
+                "目录非空，创建时会追加 pixi.toml、.gitignore、.gitattributes。"
+                if nonempty
+                else "目录为空，将创建 pixi.toml。"
+            )
+        else:
+            self.preview_var.set("目录不存在，创建时会自动建立。")
+        i18n.localize_widget_tree(self)
+
+    def _accept(self) -> None:
+        raw = self.path_var.get().strip().strip('"')
+        if not raw:
+            messagebox.showwarning("路径为空", "请选择或输入工作区目录。", parent=self)
+            return
+        path = Path(raw).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        if path.exists() and not path.is_dir():
+            messagebox.showerror("路径无效", "目标路径已存在且不是目录。", parent=self)
+            return
+        if path.exists() and manifest_for_path(path) is not None:
+            messagebox.showinfo(
+                "已有 Pixi 清单",
+                "该目录已有 Pixi 清单，请直接打开。",
                 parent=self,
             )
             return
-        self.result = str(manifest)
+        if path.exists() and (path / "pyproject.toml").is_file():
+            messagebox.showerror(
+                "已有 pyproject.toml",
+                "新建向导只创建 pixi.toml。该目录已有 pyproject.toml，"
+                "请换一个目录或直接打开现有清单。",
+                parent=self,
+            )
+            return
+        name = path.name
+        if not name:
+            messagebox.showwarning("目录无效", "不能直接在磁盘根目录创建工作区。", parent=self)
+            return
+        channels = [
+            item.strip()
+            for item in re.split(r"[,;\n]", self.channels_var.get())
+            if item.strip()
+        ]
+        if not channels:
+            messagebox.showwarning("频道为空", "至少填写一个频道。", parent=self)
+            return
+        platforms = [name for name, var in self.platform_vars.items() if var.get()]
+        if not platforms:
+            messagebox.showwarning("平台为空", "至少选择一个平台。", parent=self)
+            return
+        if path.exists():
+            try:
+                nonempty = any(path.iterdir())
+            except OSError:
+                nonempty = False
+            if nonempty and not messagebox.askyesno(
+                "目录非空",
+                "目录中已有文件。Pixi 会追加 .gitignore、.gitattributes 和 "
+                "pixi.toml，但不会删除已有文件。\n\n继续创建吗？",
+                parent=self,
+            ):
+                return
+        self.result = {
+            "path": str(path),
+            "channels": channels,
+            "platforms": platforms,
+            "name": name,
+        }
         self.destroy()
 
 
