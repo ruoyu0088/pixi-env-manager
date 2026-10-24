@@ -440,7 +440,10 @@ class MainWindow:
             self.notebook.select(self.overview_tab)
             self._rebuild_recent_menu()
             self.set_status(
-                "已打开 {} / {}".format(workspace.name, self.environment)
+                "已打开 {} / {}".format(
+                    workspace.name,
+                    self._base_label() if self.base_mode else self.environment,
+                )
             )
             self.console.append_system(
                 "已打开工作区: {}  [{}]".format(workspace.manifest, self.environment),
@@ -726,7 +729,9 @@ class MainWindow:
                 return
             workspace.packages_by_env[env_name] = packages
             workspace.package_errors.pop(env_name, None)
-            self.libraries_tab.set_workspace(workspace, env_name)
+            self.libraries_tab.set_workspace(
+                workspace, env_name, base_mode=self.base_mode
+            )
             self.overview_tab.set_workspace(workspace, env_name)
             self.set_status("已切换到环境 {}".format(env_name))
 
@@ -738,7 +743,9 @@ class MainWindow:
                 return
             workspace.package_errors[env_name] = str(exc)
             workspace.packages_by_env[env_name] = []
-            self.libraries_tab.set_workspace(workspace, env_name)
+            self.libraries_tab.set_workspace(
+                workspace, env_name, base_mode=self.base_mode
+            )
             self.overview_tab.set_workspace(workspace, env_name)
             self.set_status("读取环境库列表失败", danger=True)
             self.console.append_system(str(exc), "error")
