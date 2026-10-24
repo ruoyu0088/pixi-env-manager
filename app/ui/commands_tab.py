@@ -307,10 +307,10 @@ class CommandsTab(ttk.Frame):
         paned = ttk.Panedwindow(self, orient="horizontal")
         paned.pack(fill="both", expand=True, pady=(10, 0))
 
-        left = ttk.Frame(paned, width=190)
+        left = ttk.Frame(paned, width=210)
         self.tree = ttk.Treeview(left, show="tree", selectmode="browse")
         self.tree.pack(fill="both", expand=True)
-        self.tree.column("#0", width=180, stretch=True)
+        self.tree.column("#0", width=205, stretch=True)
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         paned.add(left, weight=0)
 
@@ -467,9 +467,18 @@ class CommandsTab(ttk.Frame):
             if spec.group not in groups:
                 group_id = "group:" + spec.group
                 groups[spec.group] = group_id
-                self.tree.insert("", "end", iid=group_id, text=spec.group, open=True)
+                self.tree.insert(
+                    "",
+                    "end",
+                    iid=group_id,
+                    text=i18n.t(spec.group),
+                    open=True,
+                )
             self.tree.insert(
-                groups[spec.group], "end", iid="cmd:" + spec.key, text=spec.title
+                groups[spec.group],
+                "end",
+                iid="cmd:" + spec.key,
+                text=i18n.t(spec.title),
             )
 
     def _select_default(self) -> None:
@@ -527,8 +536,8 @@ class CommandsTab(ttk.Frame):
         return spec.default
 
     def _build_form(self, spec: CommandSpec) -> None:
-        self.title_var.set(spec.title)
-        self.summary_var.set(spec.summary)
+        self.title_var.set(i18n.t(spec.title))
+        self.summary_var.set(i18n.t(spec.summary))
         inner = self.form_scroll.inner
         clear_children(inner)
         self.vars = {}
