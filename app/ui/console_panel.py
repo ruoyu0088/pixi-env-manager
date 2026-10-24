@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Dict, Optional
 
+from .. import i18n
 from ..util import strip_ansi, truncate_text
 
 
@@ -39,7 +40,9 @@ class OutputView(ttk.Frame):
         header = ttk.Frame(self, style="Panel.TFrame", padding=(7, 4))
         header.pack(fill="x")
         self.status_var = tk.StringVar(
-            value="运行中" if running else ("系统消息" if job_id is None else "完成")
+            value=i18n.t("运行中")
+            if running
+            else (i18n.t("系统消息") if job_id is None else i18n.t("完成"))
         )
         self.status_label = ttk.Label(
             header, textvariable=self.status_var, style="SmallCard.TLabel"
@@ -165,7 +168,7 @@ class OutputView(ttk.Frame):
         self.running = True
         self.stop_button.configure(state="normal")
         self.close_button.configure(state="disabled")
-        self.status_var.set("运行中")
+        self.status_var.set(i18n.t("运行中"))
         self._append_raw("$ " + command_line + "\n", "command")
 
     def finish(
@@ -178,20 +181,22 @@ class OutputView(ttk.Frame):
         self.stop_button.configure(state="disabled")
         self.close_button.configure(state="normal")
         if cancelled:
-            self.status_var.set("已停止")
+            self.status_var.set(i18n.t("已停止"))
             self._append_raw(
-                "[已停止] 用时 {:.1f}s\n".format(elapsed), "warning"
+                i18n.t("[已停止] 用时 {:.1f}s\n", elapsed), "warning"
             )
         elif returncode == 0:
-            self.status_var.set("完成")
-            self._append_raw("[完成] 用时 {:.1f}s\n".format(elapsed), "success")
-        else:
-            self.status_var.set("失败（退出码 {}）".format(returncode))
+            self.status_var.set(i18n.t("完成"))
             self._append_raw(
-                "[失败] 退出码 {}，用时 {:.1f}s\n".format(returncode, elapsed),
+                i18n.t("[完成] 用时 {:.1f}s\n", elapsed), "success"
+            )
+        else:
+            self.status_var.set(i18n.t("失败（退出码 {}）", returncode))
+            self._append_raw(
+                i18n.t("[失败] 退出码 {}，用时 {:.1f}s\n", returncode, elapsed),
                 "error",
             )
-        self.meta_var.set("用时 {:.1f}s".format(elapsed))
+        self.meta_var.set(i18n.t("用时 {:.1f}s", elapsed))
 
     def _stop(self) -> None:
         if self.running and self.job_id is not None and self.on_stop:
@@ -275,10 +280,10 @@ class ConsolePanel(ttk.Frame):
     def _update_status(self) -> None:
         running = sum(1 for view in self.jobs.values() if view.running)
         self.status_var.set(
-            "运行中 {} 个任务".format(running) if running else "空闲"
+            i18n.t("运行中 {} 个任务", running) if running else i18n.t("空闲")
         )
         self.stop_all_button.configure(state="normal" if running else "disabled")
-        self.notebook.tab(self.system_view, text="系统")
+        self.notebook.tab(self.system_view, text=i18n.t("系统"))
 
     def _unique_title(self, title: str) -> str:
         base = truncate_text(title, 34) or "任务"
@@ -287,7 +292,7 @@ class ConsolePanel(ttk.Frame):
         return base if index == 1 else "{} ({})".format(base, index)
 
     def start_job(self, job, command_line: str) -> OutputView:
-        title = self._unique_title(job.title)
+        title = self._unique_title(i18n.translate_dynamic(job.title))
         view = OutputView(
             self.notebook,
             colors=self.colors,
@@ -313,7 +318,7 @@ class ConsolePanel(ttk.Frame):
             view.append(text)
 
     def append_system(self, text: str, tag: str = "info") -> None:
-        self.system_view.append(text, tag)
+        self.system_view.append(i18n.translate_dynamic(text), tag)
 
     def finish_job(
         self,

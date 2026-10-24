@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Dict, Optional
 
+from .. import i18n
 from ..models import WorkspaceData
 from .widgets import Tooltip
 
@@ -137,7 +138,9 @@ class OverviewTab(ttk.Frame):
         tip = Tooltip(value, value_var.get())
         value.bind(
             "<Configure>",
-            lambda _event, t=tip, v=value_var: setattr(t, "text", v.get()),
+            lambda _event, t=tip, v=value_var: setattr(
+                t, "text", i18n.translate_dynamic(v.get())
+            ),
             add="+",
         )
         if copy:
@@ -272,6 +275,7 @@ class OverviewTab(ttk.Frame):
             label="切换到此环境", command=lambda: self.app.set_environment(row)
         )
         menu.add_command(label="复制环境路径", command=lambda: self._copy_env_path(row))
+        i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:

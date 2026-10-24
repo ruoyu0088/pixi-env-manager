@@ -6,12 +6,14 @@ import os
 import queue
 import sys
 import threading
+import time
 import tkinter as tk
 import traceback
 from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Callable, Dict, List, Optional
 
+from .. import i18n
 from ..jobs import JobManager, open_terminal
 from ..models import Package, TaskInfo, WorkspaceData, manifest_for_path
 from ..pixi import PixiClient, PixiError, find_pixi
@@ -40,6 +42,9 @@ class MainWindow:
     def __init__(self, root: tk.Tk, initial_path: Optional[Path] = None):
         self.root = root
         self.state = AppState()
+        i18n.set_language(str(self.state.get_setting("language", "zh") or "zh"))
+        i18n.install_messagebox_translation()
+        self._last_localize = 0.0
         self.theme = ThemeManager(root)
         self.theme.apply(str(self.state.get_setting("theme", "light")))
         self.pixi = PixiClient(str(self.state.get_setting("pixi_path", "") or ""))
@@ -56,6 +61,7 @@ class MainWindow:
         self._restore_geometry()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self._build_ui()
+        i18n.localize_widget_tree(self.root)
         self.root.bind("<Control-o>", lambda _event: self.open_environment_dialog())
         self.root.bind("<F5>", lambda _event: self.refresh_current())
         self._apply_theme(str(self.state.get_setting("theme", "light")))
@@ -227,12 +233,15 @@ class MainWindow:
             theme_name=self.theme.name,
             console_max_lines=int(self.state.get_setting("console_max_lines", 50000)),
             history_count=len(self.state.recent()),
+            language=str(self.state.get_setting("language", "zh") or "zh"),
         )
         self.root.wait_window(dialog)
         if not dialog.result:
             return
         result = dialog.result
+        old_language = str(self.state.get_setting("language", "zh") or "zh")
         self.state.set_setting("pixi_path", result["pixi_path"], save=False)
+        self.state.set_setting("language", result["language"], save=False)
         self.state.set_setting("console_max_lines", result["console_max_lines"], save=False)
         self.state.set_setting("theme", str(result["theme"]), save=False)
         self.state.save()
@@ -244,6 +253,12 @@ class MainWindow:
             self._rebuild_recent_menu()
         self._refresh_pixi_badge()
         self.set_status("设置已保存")
+        if result["language"] != old_language:
+            messagebox.showinfo(
+                "语言",
+                "语言设置已保存，重启程序后生效。",
+                parent=self.root,
+            )
 
     def _refresh_pixi_badge(self) -> None:
         if not self.pixi.available:
@@ -305,6 +320,13 @@ class MainWindow:
             return
         for event in self.job_manager.drain():
             self._handle_job_event(event)
+        now = time.monotonic()
+        if (
+            i18n.current_language() != "zh"
+            and now - self._last_localize >= 0.4
+        ):
+            self._last_localize = now
+            i18n.localize_widget_tree(self.root)
         if not self._closing:
             self.root.after(45, self._poll)
 
@@ -574,6 +596,7 @@ class MainWindow:
         recent = self.state.recent(30)
         if not recent:
             self.recent_menu.add_command(label="（暂无最近记录）", state="disabled")
+            i18n.localize_menu(self.recent_menu)
             return
         for item in recent:
             manifest = str(item.get("manifest") or "")
@@ -588,6 +611,7 @@ class MainWindow:
             )
         self.recent_menu.add_separator()
         self.recent_menu.add_command(label="清除历史", command=self._clear_recent)
+        i18n.localize_menu(self.recent_menu)
 
     def _open_recent(self, manifest: str, env: str) -> None:
         path = Path(manifest)
@@ -671,6 +695,7 @@ class MainWindow:
         dangerous: bool = False,
         use_manifest: bool = True,
     ) -> None:
+        title = i18n.translate_dynamic(str(title))
         if not self.pixi.available:
             messagebox.showerror(
                 "找不到 Pixi",
@@ -735,6 +760,7 @@ class MainWindow:
     def open_pixi_terminal(
         self, args: List[str], title: str = "Pixi", use_manifest: bool = True
     ) -> None:
+        title = i18n.translate_dynamic(str(title))
         if not self.pixi.available:
             messagebox.showerror(
                 "找不到 Pixi",
@@ -816,7 +842,9 @@ class MainWindow:
             return
         if messagebox.askyesno(
             "停止任务",
-            "确定停止“{}”及其子进程吗？".format(job.title),
+            "确定停止“{}”及其子进程吗？".format(
+                i18n.translate_dynamic(job.title)
+            ),
             parent=self.root,
         ):
             self.job_manager.cancel(job_id)
@@ -935,7 +963,7 @@ class MainWindow:
     def update_package(self, package: Package, upgrade: bool = False) -> None:
         if not self.workspace:
             return
-        verb = "升级到最新版本" if upgrade else "更新到兼容版本"
+        verb = i18n.t("升级到最新版本" if upgrade else "更新到兼容版本")
         args = [
             "upgrade" if upgrade else "update",
             "--environment",
@@ -975,9 +1003,10 @@ class MainWindow:
                 args, title="Pixi task: {}".format(task.name), use_manifest=True
             )
             return
+        title = i18n.translate_dynamic("Task: {}".format(task.name))
         try:
             job = self.job_manager.start(
-                "Task: {}".format(task.name),
+                title,
                 [self.pixi.require()] + full_args,
                 cwd=self.workspace.root,
             )
@@ -1062,9 +1091,10 @@ class MainWindow:
             )
             self.python_tab.set_status("已在新终端中运行 {}".format(script.name))
             return
+        title = i18n.translate_dynamic("Python: {}".format(script.name))
         try:
             job = self.job_manager.start(
-                "Python: {}".format(script.name),
+                title,
                 [self.pixi.require()] + args,
                 cwd=cwd,
                 extra={
@@ -1161,7 +1191,7 @@ class MainWindow:
     # Status / errors
     # ------------------------------------------------------------------
     def set_status(self, text: str, danger: bool = False) -> None:
-        self.status_var.set(text)
+        self.status_var.set(i18n.translate_dynamic(text))
         try:
             self.status_label.configure(
                 style="StatusDanger.TLabel" if danger else "Status.TLabel"

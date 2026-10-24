@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Dict, List, Optional
 
+from .. import i18n
 from ..models import TaskInfo, WorkspaceData
 from ..util import truncate_text
 
@@ -275,6 +276,7 @@ class TasksTab(ttk.Frame):
         menu.add_command(label="在终端中运行", command=lambda: self._launch(True))
         menu.add_separator()
         menu.add_command(label="复制命令", command=self._copy_command)
+        i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:

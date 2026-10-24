@@ -8,6 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Dict, Optional
 
+from .. import i18n
 from ..models import manifest_for_path
 
 
@@ -74,6 +75,7 @@ class DetailsDialog(tk.Toplevel):
         )
         self.bind("<Escape>", lambda _event: self.destroy())
         self._center(parent)
+        i18n.localize_widget_tree(self)
 
     def _copy(self) -> None:
         self.clipboard_clear()
@@ -168,6 +170,7 @@ class OpenEnvironmentDialog(tk.Toplevel):
         self.grab_set()
         self.update_idletasks()
         self._center(parent)
+        i18n.localize_widget_tree(self)
         entry.focus_set()
 
     def _center(self, parent) -> None:
@@ -254,6 +257,7 @@ class TaskArgsDialog(tk.Toplevel):
         self.grab_set()
         self.update_idletasks()
         self._center(parent)
+        i18n.localize_widget_tree(self)
         self.entry.focus_set()
 
     def _center(self, parent) -> None:
@@ -279,6 +283,7 @@ class SettingsDialog(tk.Toplevel):
         theme_name: str,
         console_max_lines: int,
         history_count: int = 0,
+        language: str = "zh",
     ):
         super().__init__(parent)
         self.title("设置")
@@ -308,14 +313,35 @@ class SettingsDialog(tk.Toplevel):
         ttk.Label(frame, text="主题", style="CardTitle.TLabel").grid(
             row=3, column=0, sticky="w", pady=(16, 4)
         )
-        self.theme_var = tk.StringVar(value="深色" if theme_name == "dark" else "浅色")
+        self.theme_var = tk.StringVar(
+            value=i18n.t("深色") if theme_name == "dark" else i18n.t("浅色")
+        )
         ttk.Combobox(
             frame,
             textvariable=self.theme_var,
-            values=("浅色", "深色"),
+            values=(i18n.t("浅色"), i18n.t("深色")),
             state="readonly",
             width=12,
         ).grid(row=4, column=0, sticky="w")
+
+        ttk.Label(frame, text="界面语言", style="CardTitle.TLabel").grid(
+            row=5, column=0, sticky="w", pady=(16, 4)
+        )
+        self.language_var = tk.StringVar(value=i18n.language_display_name(language))
+        ttk.Combobox(
+            frame,
+            textvariable=self.language_var,
+            values=tuple(
+                i18n.language_display_name(code) for code in ("zh", "en", "ja")
+            ),
+            state="readonly",
+            width=12,
+        ).grid(row=6, column=0, sticky="w")
+        ttk.Label(
+            frame,
+            text="语言修改后需要重启程序生效。",
+            style="Muted.TLabel",
+        ).grid(row=6, column=1, columnspan=2, sticky="w", padx=(12, 0))
 
         ttk.Label(frame, text="控制台最大行数", style="CardTitle.TLabel").grid(
             row=3, column=1, sticky="w", pady=(16, 4)
@@ -326,7 +352,7 @@ class SettingsDialog(tk.Toplevel):
         ).grid(row=4, column=1, sticky="w", padx=(12, 0))
 
         action_frame = ttk.Frame(frame)
-        action_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(20, 0))
+        action_frame.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(20, 0))
         ttk.Button(
             action_frame,
             text="清空打开历史",
@@ -347,6 +373,7 @@ class SettingsDialog(tk.Toplevel):
         self.grab_set()
         self.update_idletasks()
         self._center(parent)
+        i18n.localize_widget_tree(self)
 
     def _center(self, parent) -> None:
         try:
@@ -386,10 +413,16 @@ class SettingsDialog(tk.Toplevel):
             messagebox.showerror("设置无效", "控制台最大行数必须是整数。", parent=self)
             return
         lines = max(1000, min(200000, lines))
+        language_code = "zh"
+        for code in ("zh", "en", "ja"):
+            if self.language_var.get() == i18n.language_display_name(code):
+                language_code = code
+                break
         self.result = {
             "pixi_path": self.pixi_var.get().strip(),
-            "theme": "dark" if self.theme_var.get() == "深色" else "light",
+            "theme": "dark" if self.theme_var.get() == i18n.t("深色") else "light",
             "console_max_lines": lines,
             "clear_history": bool(getattr(self, "_clear_requested", False)),
+            "language": language_code,
         }
         self.destroy()

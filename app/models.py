@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+from .i18n import t
 from .versions import compare_versions
 
 
@@ -84,19 +85,19 @@ class Package:
     @property
     def status_text(self) -> str:
         if self.checking_latest:
-            return "查询中…"
+            return t("查询中…")
         if self.latest_error:
-            return "查询失败"
+            return t("查询失败")
         if self.latest:
             comparison = self.compare_latest()
             if comparison > 0:
-                return "有更新"
+                return t("有更新")
             if comparison == 0:
-                return "已是最新"
-            return "已安装更高"
+                return t("已是最新")
+            return t("已安装更高")
         if self.compatible_to:
-            return "可兼容更新"
-        return "未检查"
+            return t("可兼容更新")
+        return t("未检查")
 
     @property
     def status_level(self) -> str:

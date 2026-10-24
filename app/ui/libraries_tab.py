@@ -7,6 +7,7 @@ from functools import cmp_to_key
 from tkinter import messagebox, ttk
 from typing import Dict, List, Optional, Tuple
 
+from .. import i18n
 from ..models import Package, WorkspaceData
 from ..util import format_size, truncate_text
 from ..versions import compare_versions
@@ -67,11 +68,11 @@ class LibrariesTab(ttk.Frame):
         ttk.Label(toolbar, text="类型", style="Muted.TLabel").pack(
             side="left", padx=(12, 4)
         )
-        self.kind_var = tk.StringVar(value="全部")
+        self.kind_var = tk.StringVar(value=i18n.t("全部"))
         self.kind_combo = ttk.Combobox(
             toolbar,
             textvariable=self.kind_var,
-            values=("全部", "Conda", "PyPI"),
+            values=(i18n.t("全部"), "Conda", "PyPI"),
             state="readonly",
             width=8,
         )
@@ -484,28 +485,35 @@ class LibrariesTab(ttk.Frame):
         if package is None:
             return
         lines = [
-            "名称: {}".format(package.name),
-            "已安装版本: {}".format(package.version),
-            "最新版本: {}".format(package.latest or "未检查"),
-            "状态: {}".format(package.status_text),
-            "类型: {}".format("PyPI" if package.kind.lower() == "pypi" else "Conda"),
-            "构建: {}".format(package.build or "—"),
-            "请求约束: {}".format(package.requested_spec or "—"),
-            "来源: {}".format(package.source or "—"),
-            "许可证: {}".format(package.license or "—"),
-            "文件名: {}".format(package.file_name or "—"),
-            "URL: {}".format(package.url or "—"),
+            i18n.t("名称: {}", package.name),
+            i18n.t("已安装版本: {}", package.version),
+            i18n.t("最新版本: {}", package.latest or i18n.t("未检查")),
+            i18n.t("状态: {}", package.status_text),
+            i18n.t(
+                "类型: {}",
+                "PyPI" if package.kind.lower() == "pypi" else "Conda",
+            ),
+            i18n.t("构建: {}", package.build or "—"),
+            i18n.t("请求约束: {}", package.requested_spec or "—"),
+            i18n.t("来源: {}", package.source or "—"),
+            i18n.t("许可证: {}", package.license or "—"),
+            i18n.t("文件名: {}", package.file_name or "—"),
+            i18n.t("URL: {}", package.url or "—"),
         ]
         if package.depends:
-            lines.extend(["", "运行依赖:"])
+            lines.extend(["", i18n.t("运行依赖:")])
             lines.extend("  " + item for item in package.depends)
         if package.constrains:
-            lines.extend(["", "约束:"])
+            lines.extend(["", i18n.t("约束:")])
             lines.extend("  " + item for item in package.constrains)
         if package.compatible_to:
-            lines.extend(["", "兼容范围内可更新到: " + package.compatible_to])
+            lines.extend(
+                ["", i18n.t("兼容范围内可更新到: ") + package.compatible_to]
+            )
         if package.latest_error:
-            lines.extend(["", "最新版本查询失败: " + package.latest_error])
+            lines.extend(
+                ["", i18n.t("最新版本查询失败: ") + package.latest_error]
+            )
         from .dialogs import DetailsDialog
 
         DetailsDialog(
@@ -631,6 +639,7 @@ class LibrariesTab(ttk.Frame):
         menu.add_separator()
         menu.add_command(label="复制包名", command=self._copy_selected_name)
         menu.add_command(label="复制已安装版本", command=self._copy_version)
+        i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:

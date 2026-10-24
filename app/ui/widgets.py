@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Dict, Optional
 
+from .. import i18n
+
 
 class ScrollableFrame(ttk.Frame):
     """A vertically scrollable frame.
@@ -74,7 +76,7 @@ class ScrollableFrame(ttk.Frame):
 class Tooltip:
     def __init__(self, widget: tk.Widget, text: str, delay: int = 500):
         self.widget = widget
-        self.text = text
+        self.text = i18n.translate_dynamic(text)
         self.delay = delay
         self._after_id: Optional[str] = None
         self._window: Optional[tk.Toplevel] = None

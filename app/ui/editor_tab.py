@@ -10,6 +10,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Dict, Optional
 
+from .. import i18n
 from ..models import WorkspaceData
 from ..toml_highlight import tokenize
 
@@ -459,6 +460,7 @@ class EditorTab(ttk.Frame):
         menu.add_command(label="粘贴", command=lambda: self.text.event_generate("<<Paste>>"))
         menu.add_separator()
         menu.add_command(label="全选", command=self._select_all)
+        i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:

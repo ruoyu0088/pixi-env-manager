@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
+    "language": "zh",
     "theme": "light",
     "pixi_path": "",
     "window_geometry": "",

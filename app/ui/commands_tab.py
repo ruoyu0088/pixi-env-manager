@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from tkinter import messagebox, ttk
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from .. import i18n
 from ..util import split_user_args
 from .widgets import ScrollableFrame, Tooltip, clear_children
 
@@ -499,7 +500,7 @@ class CommandsTab(ttk.Frame):
     def _env_display_values(self) -> Tuple[str, ...]:
         workspace = self.app.workspace
         names = workspace.env_names if workspace else []
-        return tuple(["（不指定）"] + names)
+        return tuple([i18n.t("（不指定）")] + names)
 
     def _platform_values(self) -> Tuple[str, ...]:
         workspace = self.app.workspace
@@ -509,7 +510,9 @@ class CommandsTab(ttk.Frame):
                 if env.platform:
                     values.add(env.platform)
             values.add(workspace.platform)
-        return tuple(["（不指定）"] + sorted(value for value in values if value))
+        return tuple(
+            [i18n.t("（不指定）")] + sorted(value for value in values if value)
+        )
 
     def _task_values(self) -> Tuple[str, ...]:
         workspace = self.app.workspace
@@ -520,7 +523,7 @@ class CommandsTab(ttk.Frame):
 
     def _field_default(self, spec: FieldSpec) -> str:
         if spec.default == "current":
-            return self.app.environment or "（不指定）"
+            return self.app.environment or i18n.t("（不指定）")
         return spec.default
 
     def _build_form(self, spec: CommandSpec) -> None:
@@ -605,6 +608,7 @@ class CommandsTab(ttk.Frame):
             self.run_button.configure(text="运行")
         self._update_preview()
         self._load_help(spec)
+        i18n.localize_widget_tree(self)
 
     # ------------------------------------------------------------------
     def _value(self, key: str) -> str:
@@ -613,7 +617,7 @@ class CommandsTab(ttk.Frame):
             return bool(variable.get())
         value = variable.get() if variable is not None else ""
         value = str(value).strip()
-        if value == "（不指定）":
+        if value == i18n.t("（不指定）"):
             return ""
         return value
 

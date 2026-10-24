@@ -8,6 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Dict, Optional
 
+from .. import i18n
 from ..models import WorkspaceData
 
 
@@ -224,11 +225,11 @@ class PythonTab(ttk.Frame):
         if self._loading:
             return
         if not self.workspace:
-            self._set_preview("（打开环境后显示命令）")
+            self._set_preview(i18n.t("（打开环境后显示命令）"))
             return
         script = self.script_var.get().strip().strip('"')
         if not script:
-            self._set_preview("（选择 Python 脚本后显示命令）")
+            self._set_preview(i18n.t("（选择 Python 脚本后显示命令）"))
             return
         try:
             argv = self.app.python_command_args(script, self.args_var.get())

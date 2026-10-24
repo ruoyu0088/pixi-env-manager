@@ -7,6 +7,7 @@ from pathlib import Path
 from tkinter import ttk
 from typing import Dict, List, Optional
 
+from .. import i18n
 from ..models import TaskInfo, WorkspaceData
 from ..util import shorten_path, truncate_text
 from .widgets import ScrollableFrame, Tooltip, clear_children
@@ -141,9 +142,11 @@ class QuickSidebar(ttk.Frame):
             for item in (
                 task.name,
                 task.cmd,
-                "目录: " + task.cwd if task.cwd else "",
-                "所属: " + task.feature if task.feature else "",
-                "依赖: " + ", ".join(task.depends_on) if task.depends_on else "",
+                i18n.t("目录: ") + task.cwd if task.cwd else "",
+                i18n.t("所属: ") + task.feature if task.feature else "",
+                i18n.t("依赖: ") + ", ".join(task.depends_on)
+                if task.depends_on
+                else "",
             )
             if item
         )
@@ -182,6 +185,7 @@ class QuickSidebar(ttk.Frame):
         )
         menu.add_separator()
         menu.add_command(label="查看详情", command=lambda: self.app.show_task(task))
+        i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -244,10 +248,12 @@ class QuickSidebar(ttk.Frame):
             item
             for item in (
                 script,
-                "参数: " + args if args else "参数: （无）",
-                "工作目录: " + str(run.get("cwd") or ""),
-                "上次运行: " + str(run.get("last_run") or ""),
-                "" if exists else "⚠ 脚本文件不存在",
+                i18n.t("参数: ") + args
+                if args
+                else i18n.t("参数: （无）"),
+                i18n.t("工作目录: ") + str(run.get("cwd") or ""),
+                i18n.t("上次运行: ") + str(run.get("last_run") or ""),
+                "" if exists else i18n.t("⚠ 脚本文件不存在"),
             )
             if item
         )
@@ -291,6 +297,7 @@ class QuickSidebar(ttk.Frame):
             label="从历史中移除",
             command=lambda: self.app.remove_python_run(run),
         )
+        i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
