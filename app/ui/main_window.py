@@ -220,12 +220,18 @@ class MainWindow:
     def _update_env_manage_state(self) -> None:
         if not hasattr(self, "env_manage_menu"):
             return
-        add_state = "normal" if self.workspace is not None else "disabled"
+        busy = self._loading or self.job_manager.busy
+        add_state = (
+            "normal"
+            if self.workspace is not None and not busy
+            else "disabled"
+        )
         remove_state = (
             "normal"
             if self.workspace is not None
             and bool(self.environment)
             and self.environment != "default"
+            and not busy
             else "disabled"
         )
         try:
@@ -828,6 +834,7 @@ class MainWindow:
         self.job_status_var.set(
             "运行中 {} 个".format(self.job_manager.active_count)
         )
+        self._update_env_manage_state()
 
     def _handle_job_event(self, event) -> None:
         if event.kind == "line":
@@ -845,6 +852,7 @@ class MainWindow:
         self.job_status_var.set(
             "运行中 {} 个".format(active) if active else "空闲"
         )
+        self._update_env_manage_state()
         job = event.job
         python_meta = job.extra.get("python_meta")
         if python_meta:
