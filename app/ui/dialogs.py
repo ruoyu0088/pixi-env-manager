@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+import re
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from .. import i18n
 from ..models import manifest_for_path
@@ -272,6 +273,236 @@ class TaskArgsDialog(tk.Toplevel):
 
     def _accept(self) -> None:
         self.result = self.entry.get()
+        self.destroy()
+
+
+class AddEnvironmentDialog(tk.Toplevel):
+    def __init__(
+        self,
+        parent,
+        existing_names: List[str],
+        features: List[str],
+        default_install: bool = True,
+    ):
+        super().__init__(parent)
+        self.title(i18n.t("添加环境"))
+        self.transient(parent)
+        self.resizable(True, False)
+        self.result: Optional[Dict[str, object]] = None
+        self.existing_names = set(existing_names)
+        self.features = [name for name in features if name != "default"]
+
+        frame = ttk.Frame(self, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="环境名称", style="CardTitle.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.name_var = tk.StringVar()
+        self.name_entry = ttk.Entry(frame, textvariable=self.name_var, width=44)
+        self.name_entry.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(4, 2)
+        )
+        ttk.Label(
+            frame,
+            text="名称不能重复，default 是隐式环境，不能作为新名称。",
+            style="MutedCard.TLabel",
+        ).grid(row=2, column=0, columnspan=2, sticky="w")
+
+        ttk.Label(frame, text="Features", style="CardTitle.TLabel").grid(
+            row=3, column=0, sticky="w", pady=(14, 4)
+        )
+        self.default_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            frame,
+            text="包含 default feature",
+            variable=self.default_var,
+        ).grid(row=4, column=0, columnspan=2, sticky="w")
+
+        self.feature_vars: Dict[str, tk.BooleanVar] = {}
+        feature_frame = ttk.Frame(frame)
+        feature_frame.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        if self.features:
+            for index, feature in enumerate(self.features):
+                var = tk.BooleanVar(value=False)
+                self.feature_vars[feature] = var
+                ttk.Checkbutton(
+                    feature_frame, text=feature, variable=var
+                ).grid(row=index // 3, column=index % 3, sticky="w", padx=(0, 14), pady=2)
+        else:
+            ttk.Label(
+                feature_frame,
+                text="工作区没有其他 feature。",
+                style="MutedCard.TLabel",
+            ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            frame,
+            text="取消 default feature 时，必须至少选择一个其他 feature。",
+            style="MutedCard.TLabel",
+            wraplength=620,
+        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        ttk.Label(frame, text="Solve group（可选）", style="CardTitle.TLabel").grid(
+            row=7, column=0, sticky="w", pady=(14, 4)
+        )
+        self.solve_group_var = tk.StringVar()
+        ttk.Entry(frame, textvariable=self.solve_group_var, width=32).grid(
+            row=8, column=0, sticky="w"
+        )
+
+        self.install_var = tk.BooleanVar(value=default_install)
+        ttk.Checkbutton(
+            frame,
+            text="创建后立即安装环境",
+            variable=self.install_var,
+        ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(14, 0))
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=10, column=0, columnspan=2, sticky="e", pady=(18, 0))
+        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(
+            buttons,
+            text="添加环境",
+            style="Accent.TButton",
+            command=self._accept,
+        ).pack(side="right", padx=(0, 8))
+
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+        self.bind("<Escape>", lambda _event: self.destroy())
+        self.grab_set()
+        self.update_idletasks()
+        self._center(parent)
+        i18n.localize_widget_tree(self)
+        self.name_entry.focus_set()
+
+    def _center(self, parent) -> None:
+        try:
+            px = parent.winfo_rootx()
+            py = parent.winfo_rooty()
+            self.geometry(
+                "+{}+{}".format(
+                    px + max(0, (parent.winfo_width() - self.winfo_width()) // 2),
+                    py + max(0, (parent.winfo_height() - self.winfo_height()) // 2),
+                )
+            )
+        except tk.TclError:
+            pass
+
+    def _accept(self) -> None:
+        name = self.name_var.get().strip()
+        if not name:
+            messagebox.showwarning("环境名称", "请输入环境名称。", parent=self)
+            return
+        if name == "default":
+            messagebox.showwarning(
+                "环境名称", "default 是隐式环境，不能作为新环境名称。", parent=self
+            )
+            return
+        if name in self.existing_names:
+            messagebox.showwarning(
+                "环境已存在", "环境“{}”已经存在。".format(name), parent=self
+            )
+            return
+        if re.search(r"\s", name) or '"' in name or "'" in name:
+            messagebox.showwarning(
+                "环境名称",
+                "环境名称不能包含空格、单引号或双引号。",
+                parent=self,
+            )
+            return
+        selected = [
+            feature for feature, var in self.feature_vars.items() if var.get()
+        ]
+        if not self.default_var.get() and not selected:
+            messagebox.showwarning(
+                "Features",
+                "取消 default feature 后，必须至少选择一个其他 feature。",
+                parent=self,
+            )
+            return
+        self.result = {
+            "name": name,
+            "features": selected,
+            "use_default": bool(self.default_var.get()),
+            "solve_group": self.solve_group_var.get().strip(),
+            "install": bool(self.install_var.get()),
+        }
+        self.destroy()
+
+
+class RemoveEnvironmentDialog(tk.Toplevel):
+    def __init__(self, parent, name: str, has_directory: bool):
+        super().__init__(parent)
+        self.title(i18n.t("删除环境"))
+        self.transient(parent)
+        self.resizable(False, False)
+        self.result: Optional[Dict[str, object]] = None
+        self.name = name
+
+        frame = ttk.Frame(self, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(
+            frame,
+            text="从清单中删除环境“{}”？".format(name),
+            style="CardTitle.TLabel",
+            wraplength=620,
+        ).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text="这会修改 pixi.toml / pyproject.toml，但不会自动更新 lock 文件。",
+            style="MutedCard.TLabel",
+            wraplength=620,
+        ).pack(anchor="w", pady=(4, 10))
+
+        self.cleanup_var = tk.BooleanVar(value=False)
+        cleanup = ttk.Checkbutton(
+            frame,
+            text="同时清理已安装的环境目录（pixi clean）",
+            variable=self.cleanup_var,
+        )
+        cleanup.pack(anchor="w")
+        if not has_directory:
+            cleanup.configure(state="disabled")
+            ttk.Label(
+                frame,
+                text="该环境当前没有已安装的 .pixi 环境目录。",
+                style="MutedCard.TLabel",
+            ).pack(anchor="w", pady=(3, 0))
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(18, 0))
+        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(
+            buttons,
+            text="删除环境",
+            style="Danger.TButton",
+            command=self._accept,
+        ).pack(side="right", padx=(0, 8))
+
+        self.bind("<Escape>", lambda _event: self.destroy())
+        self.grab_set()
+        self.update_idletasks()
+        self._center(parent)
+        i18n.localize_widget_tree(self)
+
+    def _center(self, parent) -> None:
+        try:
+            px = parent.winfo_rootx()
+            py = parent.winfo_rooty()
+            self.geometry(
+                "+{}+{}".format(
+                    px + max(0, (parent.winfo_width() - self.winfo_width()) // 2),
+                    py + max(0, (parent.winfo_height() - self.winfo_height()) // 2),
+                )
+            )
+        except tk.TclError:
+            pass
+
+    def _accept(self) -> None:
+        self.result = {
+            "name": self.name,
+            "cleanup": bool(self.cleanup_var.get()),
+        }
         self.destroy()
 
 

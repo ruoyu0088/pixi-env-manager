@@ -53,6 +53,16 @@ class StateTests(unittest.TestCase):
         self.assertEqual(len(state.python_runs(self.manifest, "default")), 1)
         self.assertEqual(len(state.python_runs(self.manifest, "test")), 1)
 
+    def test_remove_python_runs_for_environment(self):
+        state = AppState(self.path)
+        script = Path(self.temp.name) / "plot.py"
+        script.write_text("print(1)\n", encoding="utf-8")
+        state.add_python_run(self.manifest, "default", script, args="--one")
+        state.add_python_run(self.manifest, "test", script, args="--two")
+        state.remove_python_runs_for_env(self.manifest, "test")
+        self.assertEqual(len(state.python_runs(self.manifest, "default")), 1)
+        self.assertEqual(len(state.python_runs(self.manifest, "test")), 0)
+
     def test_settings_roundtrip(self):
         state = AppState(self.path)
         state.set_setting("theme", "dark")

@@ -22,7 +22,9 @@ from ..util import shorten_path, split_user_args, truncate_text
 from .commands_tab import CommandsTab
 from .console_panel import ConsolePanel
 from .dialogs import (
+    AddEnvironmentDialog,
     OpenEnvironmentDialog,
+    RemoveEnvironmentDialog,
     SettingsDialog,
     TaskArgsDialog,
     show_error,
@@ -115,18 +117,28 @@ class MainWindow:
         self.path_tooltip = Tooltip(self.path_label, "")
         self.path_label.bind("<Button-1>", lambda _event: self._copy_workspace_path())
 
-        ttk.Label(right, text="环境", style="SmallCard.TLabel").pack(
-            side="left", padx=(0, 5)
-        )
         self.env_var = tk.StringVar()
         self.env_combo = ttk.Combobox(
             right,
             textvariable=self.env_var,
             state="readonly",
-            width=20,
+            width=18,
         )
         self.env_combo.pack(side="left")
         self.env_combo.bind("<<ComboboxSelected>>", self._on_env_selected)
+        self.env_manage_button = ttk.Menubutton(
+            right, text="环境管理  ▾", style="TMenubutton"
+        )
+        self.env_manage_menu = tk.Menu(self.env_manage_button, tearoff=0)
+        self.env_manage_menu.add_command(
+            label="添加环境…", command=self.open_add_environment
+        )
+        self.env_manage_menu.add_command(
+            label="删除当前环境…", command=self.open_remove_environment
+        )
+        self.env_manage_button.configure(menu=self.env_manage_menu)
+        self.env_manage_button.pack(side="left", padx=(7, 0))
+        self.theme.style_menu(self.env_manage_menu)
         self.refresh_button = ttk.Button(
             right, text="刷新", command=self.refresh_current
         )
@@ -203,6 +215,25 @@ class MainWindow:
         state = "normal" if enabled else "disabled"
         self.refresh_button.configure(state=state)
         self.env_combo.configure(state="readonly" if enabled else "disabled")
+        self._update_env_manage_state()
+
+    def _update_env_manage_state(self) -> None:
+        if not hasattr(self, "env_manage_menu"):
+            return
+        add_state = "normal" if self.workspace is not None else "disabled"
+        remove_state = (
+            "normal"
+            if self.workspace is not None
+            and bool(self.environment)
+            and self.environment != "default"
+            else "disabled"
+        )
+        try:
+            self.env_manage_menu.entryconfigure(0, state=add_state)
+            self.env_manage_menu.entryconfigure(1, state=remove_state)
+            i18n.localize_menu(self.env_manage_menu)
+        except tk.TclError:
+            pass
 
     # ------------------------------------------------------------------
     # Theme / settings
@@ -221,8 +252,9 @@ class MainWindow:
             self.console.apply_colors(self.theme.colors, self.theme.fonts.mono_small)
             self.commands_tab.form_scroll.set_background(self.theme.colors["bg"])
             self.theme.style_menu(self.recent_menu)
-            for menu in (self.recent_menu,):
-                self.theme.style_menu(menu)
+            self.theme.style_menu(self.env_manage_menu)
+            i18n.localize_menu(self.recent_menu)
+            i18n.localize_menu(self.env_manage_menu)
         except tk.TclError:
             pass
 
@@ -466,7 +498,7 @@ class MainWindow:
         self.sidebar.set_workspace(workspace, self.environment)
         self._set_actions_enabled(True)
 
-    def refresh_current(self) -> None:
+    def refresh_current(self, preferred_env: Optional[str] = None) -> None:
         if not self.workspace or self._loading:
             return
         workspace = self.workspace
@@ -475,10 +507,13 @@ class MainWindow:
         token = self._session
         self._set_actions_enabled(False)
         self.set_status("正在刷新环境信息 …")
+        target_hint = (
+            preferred_env if preferred_env is not None else self.environment
+        )
 
         def worker() -> WorkspaceData:
             return self.pixi.workspace(
-                workspace.manifest, preferred_env=self.environment
+                workspace.manifest, preferred_env=target_hint
             )
 
         def success(new_workspace: WorkspaceData) -> None:
@@ -486,9 +521,11 @@ class MainWindow:
                 return
             self._loading = False
             self.workspace = new_workspace
-            if self.environment not in new_workspace.env_names:
+            if target_hint not in new_workspace.env_names:
                 default = new_workspace.default_env()
                 self.environment = default.name if default else ""
+            else:
+                self.environment = target_hint
             self.state.add_recent(
                 new_workspace.manifest, self.environment, new_workspace.name
             )
@@ -537,6 +574,7 @@ class MainWindow:
                 self.workspace.name or self.workspace.root.name, env_name
             )
         )
+        self._update_env_manage_state()
         if (
             env_name not in self.workspace.packages_by_env
             or env_name in self.workspace.package_errors
@@ -655,6 +693,8 @@ class MainWindow:
             return args
         if len(args) >= 2 and args[0] == "task":
             position = 2
+        elif len(args) >= 3 and args[0] == "workspace":
+            position = 3
         else:
             position = 1 if args else 0
         return (
@@ -818,6 +858,7 @@ class MainWindow:
         if job.cancelled:
             self.set_status("{} 已停止".format(job.title))
             return
+        action = job.extra.get("environment_action") or {}
         refresh_manifest = str(job.extra.get("refresh_manifest") or "")
         same_workspace = bool(
             self.workspace
@@ -827,8 +868,24 @@ class MainWindow:
                 == os.path.normcase(refresh_manifest)
             )
         )
-        if job.refresh and event.returncode == 0 and same_workspace:
-            self.refresh_current()
+        if (
+            action.get("type") == "remove"
+            and event.returncode == 0
+            and self.workspace
+        ):
+            removed = str(action.get("name") or "")
+            self.state.remove_recent(self.workspace.manifest, removed)
+            self.state.remove_python_runs_for_env(
+                self.workspace.manifest, removed
+            )
+            self._rebuild_recent_menu()
+        if job.refresh and same_workspace and (
+            event.returncode == 0 or action
+        ):
+            preferred = job.extra.get("refresh_env")
+            self.refresh_current(
+                preferred_env=str(preferred) if preferred else None
+            )
         if event.returncode not in (0, None):
             self.set_status(
                 "{} 失败，退出码 {}".format(job.title, event.returncode), danger=True
@@ -864,6 +921,164 @@ class MainWindow:
             return
         self.job_manager.cancel_all()
         self.set_status("正在停止所有任务…")
+
+    def _manifest_edit_ready(self) -> bool:
+        if self.workspace is None:
+            return False
+        if self.editor_tab.is_dirty:
+            messagebox.showinfo(
+                "未保存的修改",
+                "请先保存或放弃 pixi.toml 的未保存修改，再管理环境。",
+                parent=self.root,
+            )
+            return False
+        return True
+
+    def open_add_environment(self) -> None:
+        if not self._manifest_edit_ready():
+            return
+        if self._loading or self.job_manager.busy:
+            messagebox.showinfo(
+                "任务正在运行",
+                "请先停止所有运行中的任务并等待刷新完成，再添加环境。",
+                parent=self.root,
+            )
+            return
+        if not self.pixi.available:
+            messagebox.showerror(
+                "找不到 Pixi",
+                "请先在“设置”中指定 pixi.exe，或把 Pixi 加入 PATH。",
+                parent=self.root,
+            )
+            return
+        assert self.workspace is not None
+        features = self.pixi.feature_names(self.workspace.manifest)
+        dialog = AddEnvironmentDialog(
+            self.root,
+            existing_names=self.workspace.env_names,
+            features=features,
+            default_install=True,
+        )
+        self.root.wait_window(dialog)
+        if not dialog.result:
+            return
+        result = dialog.result
+        name = str(result["name"])
+        commands: List[List[str]] = []
+        add_args: List[str] = ["workspace", "environment", "add", name]
+        for feature in result["features"]:  # type: ignore[union-attr]
+            add_args += ["--feature", str(feature)]
+        if result["solve_group"]:
+            add_args += ["--solve-group", str(result["solve_group"])]
+        if not result["use_default"]:
+            add_args.append("--no-default-feature")
+        commands.append(add_args)
+        if result["install"]:
+            commands.append(["install", "--environment", name])
+        self._run_pixi_sequence(
+            i18n.t("添加环境 {}").format(name),
+            commands,
+            refresh=True,
+            stop_on_error=True,
+            extra={
+                "environment_action": {"type": "add", "name": name},
+                "refresh_env": name,
+            },
+        )
+
+    def open_remove_environment(self) -> None:
+        if not self._manifest_edit_ready():
+            return
+        if self.workspace is None or not self.environment:
+            return
+        if self.environment == "default":
+            messagebox.showinfo(
+                "当前环境不能删除",
+                "default 是隐式环境，不能删除。",
+                parent=self.root,
+            )
+            return
+        if self.job_manager.busy:
+            messagebox.showinfo(
+                "任务正在运行",
+                "请先停止所有运行中的任务，再删除环境。",
+                parent=self.root,
+            )
+            return
+        env = self.workspace.get_env(self.environment)
+        has_directory = bool(
+            env and env.prefix and Path(env.prefix).is_dir()
+        )
+        dialog = RemoveEnvironmentDialog(
+            self.root,
+            name=self.environment,
+            has_directory=has_directory,
+        )
+        self.root.wait_window(dialog)
+        if not dialog.result:
+            return
+        name = str(dialog.result["name"])
+        commands: List[List[str]] = []
+        if dialog.result["cleanup"] and has_directory:
+            commands.append(["clean", "--environment", name])
+        commands.append(["workspace", "environment", "remove", name])
+        self._run_pixi_sequence(
+            i18n.t("删除环境 {}").format(name),
+            commands,
+            refresh=True,
+            stop_on_error=False,
+            extra={
+                "environment_action": {"type": "remove", "name": name},
+            },
+        )
+
+    def _run_pixi_sequence(
+        self,
+        title: str,
+        commands: List[List[str]],
+        refresh: bool = False,
+        stop_on_error: bool = True,
+        extra: Optional[dict] = None,
+    ) -> None:
+        if not self.pixi.available:
+            messagebox.showerror(
+                "找不到 Pixi",
+                "请先在“设置”中指定 pixi.exe，或把 Pixi 加入 PATH。",
+                parent=self.root,
+            )
+            return
+        if self.job_manager.has_mutating() or self._loading:
+            messagebox.showinfo(
+                "已有修改环境的命令",
+                "同一时间只允许一个会修改环境/清单的 pixi 命令。\n请等待当前修改命令完成。",
+                parent=self.root,
+            )
+            return
+        full_commands = [
+            [self.pixi.require()] + self._with_manifest(list(command))
+            for command in commands
+        ]
+        job_extra = {
+            "mutating": True,
+            "refresh_manifest": str(self.workspace.manifest)
+            if self.workspace and refresh
+            else "",
+            **dict(extra or {}),
+        }
+        try:
+            job = self.job_manager.start_sequence(
+                title,
+                full_commands,
+                cwd=self.workspace.root if self.workspace else None,
+                refresh=refresh,
+                stop_on_error=stop_on_error,
+                extra=job_extra,
+            )
+        except Exception as exc:
+            self._report_error("无法启动命令", exc)
+            return
+        self._job_started(job)
+        self.set_status("运行中：{}".format(title))
 
     def install_env(self) -> None:
         if not self._require_workspace():

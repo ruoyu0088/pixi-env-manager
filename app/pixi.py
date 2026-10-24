@@ -291,6 +291,34 @@ class PixiClient:
             ["task", "list", "--manifest-path", str(manifest), "--json"], timeout=90
         )
 
+    def feature_names(self, manifest: Path) -> List[str]:
+        """Return feature names from Pixi's human-readable feature listing."""
+        try:
+            output = self.capture(
+                [
+                    "workspace",
+                    "feature",
+                    "list",
+                    "--manifest-path",
+                    str(manifest),
+                ],
+                timeout=60,
+            )
+        except PixiError:
+            return ["default"]
+        names: List[str] = []
+        in_features = False
+        for line in output.splitlines():
+            if line.strip() == "Features:":
+                in_features = True
+                continue
+            if not in_features:
+                continue
+            match = re.match(r"^- (.+?):\s*$", line)
+            if match:
+                names.append(match.group(1).strip())
+        return names or ["default"]
+
     def packages(self, manifest: Path, environment: str) -> List[Package]:
         data = self.capture_json(
             [

@@ -267,6 +267,20 @@ class AppState:
                     self.save()
                 return
 
+    def remove_python_runs_for_env(
+        self, manifest: Path, environment: str
+    ) -> None:
+        normalized = _norm_path(manifest)
+        self.data["python_runs"] = [
+            item
+            for item in self.data.get("python_runs", [])
+            if not (
+                _norm_path(item.get("manifest")) == normalized
+                and _clean_text(item.get("environment")) == environment
+            )
+        ]
+        self.save()
+
     def remove_python_run(
         self, manifest: Path, environment: str, script: Path
     ) -> None:

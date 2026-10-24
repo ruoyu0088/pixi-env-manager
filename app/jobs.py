@@ -36,12 +36,13 @@ class Job:
     title: str
     args: List[str]
     cwd: Optional[str]
-    process: subprocess.Popen
+    process: Optional[subprocess.Popen]
     started: float
     refresh: bool = False
     command_line: str = ""
     cancelled: bool = False
     extra: dict = field(default_factory=dict)
+    commands: List[List[str]] = field(default_factory=list)
 
     @property
     def elapsed(self) -> float:
@@ -105,18 +106,7 @@ class JobManager:
 
         command = [str(item) for item in args]
         try:
-            process = subprocess.Popen(
-                command,
-                cwd=str(cwd) if cwd else None,
-                env=child_env(),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-                creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
+            process = self._spawn(command, cwd)
         except OSError as exc:
             raise RuntimeError("无法启动命令：{}".format(exc)) from exc
 
@@ -136,8 +126,67 @@ class JobManager:
         threading.Thread(target=self._reader, args=(job,), daemon=True).start()
         return job
 
-    def _reader(self, job: Job) -> None:
-        stream = job.process.stdout
+    def start_sequence(
+        self,
+        title: str,
+        commands: Sequence[Sequence[str]],
+        cwd: Optional[Path] = None,
+        refresh: bool = False,
+        extra: Optional[dict] = None,
+        stop_on_error: bool = True,
+    ) -> Job:
+        normalized = [
+            [str(item) for item in command] for command in commands if command
+        ]
+        if not normalized:
+            raise RuntimeError("命令序列为空")
+        with self._lock:
+            self._counter += 1
+            job_id = self._counter
+            job = Job(
+                job_id=job_id,
+                title=title,
+                args=[],
+                cwd=str(cwd) if cwd else None,
+                process=None,
+                started=time.time(),
+                refresh=refresh,
+                command_line=" ; ".join(
+                    subprocess.list2cmdline(command) for command in normalized
+                ),
+                extra={
+                    **dict(extra or {}),
+                    "sequence": True,
+                    "steps": len(normalized),
+                },
+                commands=normalized,
+            )
+            self.jobs[job_id] = job
+        threading.Thread(
+            target=self._sequence_reader,
+            args=(job, cwd, stop_on_error),
+            daemon=True,
+        ).start()
+        return job
+
+    def _spawn(
+        self, command: Sequence[str], cwd: Optional[Path]
+    ) -> subprocess.Popen:
+        return subprocess.Popen(
+            [str(item) for item in command],
+            cwd=str(cwd) if cwd else None,
+            env=child_env(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+
+    def _stream_process(self, job: Job, process: subprocess.Popen) -> int:
+        stream = process.stdout
         try:
             if stream is not None:
                 for line in iter(stream.readline, ""):
@@ -150,21 +199,90 @@ class JobManager:
                     stream.close()
             except OSError:
                 pass
-            try:
-                returncode = job.process.wait()
-            except OSError:
-                returncode = -1
-            elapsed = job.elapsed
-            with self._lock:
-                self.jobs.pop(job.job_id, None)
+        try:
+            return process.wait()
+        except OSError:
+            return -1
+
+    def _finish(self, job: Job, returncode: int) -> None:
+        elapsed = job.elapsed
+        with self._lock:
+            job.process = None
+            self.jobs.pop(job.job_id, None)
+        self.events.put(
+            JobEvent(
+                kind="done",
+                job=job,
+                returncode=returncode,
+                elapsed=elapsed,
+            )
+        )
+
+    def _reader(self, job: Job) -> None:
+        returncode = 0
+        if job.process is not None:
+            returncode = self._stream_process(job, job.process)
+        self._finish(job, returncode)
+
+    def _sequence_reader(
+        self,
+        job: Job,
+        cwd: Optional[Path],
+        stop_on_error: bool,
+    ) -> None:
+        final_returncode = 0
+        for index, command in enumerate(job.commands, start=1):
+            if job.cancelled:
+                final_returncode = -1
+                break
             self.events.put(
                 JobEvent(
-                    kind="done",
+                    kind="line",
                     job=job,
-                    returncode=returncode,
-                    elapsed=elapsed,
+                    text="[{} / {}] $ {}".format(
+                        index,
+                        len(job.commands),
+                        subprocess.list2cmdline(command),
+                    ),
                 )
             )
+            try:
+                process = self._spawn(command, cwd)
+            except OSError as exc:
+                self.events.put(
+                    JobEvent(
+                        kind="line",
+                        job=job,
+                        text="Failed to start command: {}".format(exc),
+                    )
+                )
+                final_returncode = 1
+                break
+            with self._lock:
+                job.process = process
+            if job.cancelled:
+                self._terminate(process)
+            returncode = self._stream_process(job, process)
+            with self._lock:
+                job.process = None
+            if job.cancelled:
+                final_returncode = -1
+                break
+            if returncode != 0:
+                final_returncode = returncode
+                if stop_on_error:
+                    break
+            else:
+                final_returncode = 0
+        if job.cancelled and final_returncode == 0:
+            final_returncode = -1
+        self._finish(job, final_returncode)
+
+    def _terminate(self, process: subprocess.Popen) -> None:
+        try:
+            process.terminate()
+        except OSError:
+            pass
 
     def cancel(self, job_id: int) -> bool:
         with self._lock:
@@ -172,13 +290,17 @@ class JobManager:
         if job is None:
             return False
         job.cancelled = True
+        with self._lock:
+            process = job.process
+        if process is None:
+            return True
         if os.name == "nt":
             try:
                 subprocess.run(
                     [
                         "taskkill",
                         "/PID",
-                        str(job.process.pid),
+                        str(process.pid),
                         "/T",
                         "/F",
                     ],
@@ -191,7 +313,7 @@ class JobManager:
             except (OSError, subprocess.SubprocessError):
                 pass
         try:
-            job.process.terminate()
+            process.terminate()
             return True
         except OSError:
             return False
