@@ -50,7 +50,6 @@ class MainWindow:
         self._loading = False
         self._session = 0
         self._closing = False
-        self._job_active = False
 
         self.root.title("Pixi 环境管理器")
         self.root.minsize(1040, 680)
@@ -163,6 +162,7 @@ class MainWindow:
             mono_font=self.theme.fonts.mono_small,
             max_lines=int(self.state.get_setting("console_max_lines", 50000)),
             on_stop=self.stop_job,
+            on_stop_all=self.stop_all_jobs,
         )
         self.main_pane.add(self.console, weight=0)
 
@@ -188,7 +188,7 @@ class MainWindow:
         try:
             height = self.main_pane.winfo_height()
             if height > 400:
-                self.main_pane.sashpos(0, max(320, height - 190))
+                self.main_pane.sashpos(0, max(320, height - 245))
             self.top_pane.sashpos(0, 300)
         except tk.TclError:
             pass
@@ -237,7 +237,7 @@ class MainWindow:
         self.state.set_setting("theme", str(result["theme"]), save=False)
         self.state.save()
         self.pixi = PixiClient(str(result["pixi_path"]) or "")
-        self.console.max_lines = int(result["console_max_lines"])
+        self.console.set_max_lines(int(result["console_max_lines"]))
         self._apply_theme(str(result["theme"]))
         if result.get("clear_history"):
             self.state.clear_recent()
@@ -642,6 +642,27 @@ class MainWindow:
     def preview_pixi_command(self, args: List[str], use_manifest: bool = True) -> str:
         return self.pixi.command_line(self._with_manifest(args, use_manifest))
 
+    @staticmethod
+    def _is_mutating_args(args: List[str]) -> bool:
+        if not args:
+            return False
+        first = str(args[0]).lower()
+        if first in {
+            "add",
+            "remove",
+            "update",
+            "upgrade",
+            "install",
+            "lock",
+            "clean",
+            "reinstall",
+            "init",
+        }:
+            return True
+        if first == "task" and len(args) > 1 and args[1].lower() in ("add", "remove"):
+            return True
+        return False
+
     def run_pixi_command(
         self,
         args: List[str],
@@ -684,10 +705,11 @@ class MainWindow:
                 parent=self.root,
             ):
                 return
-        if self.job_manager.busy:
+        mutating = self._is_mutating_args(args)
+        if mutating and (self.job_manager.has_mutating() or self._loading):
             messagebox.showinfo(
-                "有任务正在运行",
-                "请先停止当前任务，或等待其完成。",
+                "已有修改环境的命令",
+                "同一时间只允许一个会修改环境/清单的 pixi 命令。\n请等待当前修改命令完成。",
                 parent=self.root,
             )
             return
@@ -700,7 +722,8 @@ class MainWindow:
                 extra={
                     "refresh_manifest": str(self.workspace.manifest)
                     if self.workspace and refresh
-                    else ""
+                    else "",
+                    "mutating": mutating,
                 },
             )
         except Exception as exc:
@@ -720,13 +743,6 @@ class MainWindow:
             )
             return
         full_args = self._with_manifest(args, use_manifest)
-        if self.job_manager.busy:
-            messagebox.showinfo(
-                "有任务正在运行",
-                "当前已有任务在 GUI 控制台运行；请先停止，再打开新终端。",
-                parent=self.root,
-            )
-            return
         try:
             open_terminal(
                 [self.pixi.require()] + full_args,
@@ -742,21 +758,26 @@ class MainWindow:
         self.set_status("已在新终端打开：{}".format(title))
 
     def _job_started(self, job) -> None:
-        self._job_active = True
-        self.job_status_var.set("运行中")
-        self.console.start_job(job.title, job.command_line)
-        self.console.set_ready("运行中")
+        self.console.start_job(job, job.command_line)
+        self.job_status_var.set(
+            "运行中 {} 个".format(self.job_manager.active_count)
+        )
 
     def _handle_job_event(self, event) -> None:
         if event.kind == "line":
-            self.console.append(event.text)
+            self.console.append(event.job.job_id, event.text)
             return
         if event.kind != "done":
             return
-        self._job_active = False
-        self.job_status_var.set("空闲")
         self.console.finish_job(
-            event.returncode, event.elapsed, cancelled=event.job.cancelled
+            event.job.job_id,
+            event.returncode,
+            event.elapsed,
+            cancelled=event.job.cancelled,
+        )
+        active = self.job_manager.active_count
+        self.job_status_var.set(
+            "运行中 {} 个".format(active) if active else "空闲"
         )
         job = event.job
         python_meta = job.extra.get("python_meta")
@@ -789,17 +810,32 @@ class MainWindow:
         else:
             self.set_status("{} 完成".format(job.title))
 
-    def stop_job(self) -> None:
-        if not self.job_manager.busy:
+    def stop_job(self, job_id: int) -> None:
+        job = self.job_manager.get(job_id)
+        if job is None:
             return
         if messagebox.askyesno(
             "停止任务",
-            "确定停止当前任务及其子进程吗？",
+            "确定停止“{}”及其子进程吗？".format(job.title),
             parent=self.root,
         ):
-            self.job_manager.cancel_current()
-            self.console.set_ready("正在停止…")
-            self.set_status("正在停止任务…")
+            self.job_manager.cancel(job_id)
+            self.set_status("正在停止：{}".format(job.title))
+
+    def stop_all_jobs(self) -> None:
+        jobs = self.job_manager.jobs_snapshot()
+        if not jobs:
+            return
+        if not messagebox.askyesno(
+            "全部停止",
+            "确定停止当前所有任务及其子进程吗？\n\n共 {} 个任务。".format(
+                len(jobs)
+            ),
+            parent=self.root,
+        ):
+            return
+        self.job_manager.cancel_all()
+        self.set_status("正在停止所有任务…")
 
     def install_env(self) -> None:
         if not self._require_workspace():
@@ -939,9 +975,6 @@ class MainWindow:
                 args, title="Pixi task: {}".format(task.name), use_manifest=True
             )
             return
-        if self.job_manager.busy:
-            messagebox.showinfo("有任务正在运行", "请先停止当前任务。", parent=self.root)
-            return
         try:
             job = self.job_manager.start(
                 "Task: {}".format(task.name),
@@ -1012,9 +1045,6 @@ class MainWindow:
                     parent=self.root,
                 ):
                     return
-        if not terminal and self.job_manager.busy:
-            messagebox.showinfo("有任务正在运行", "请先停止当前任务。", parent=self.root)
-            return
         args = self.python_command_args(str(script), args_text)
         self.state.add_python_run(
             self.workspace.manifest,
@@ -1186,11 +1216,13 @@ class MainWindow:
         if self.job_manager.busy:
             if not messagebox.askyesno(
                 "任务正在运行",
-                "关闭窗口会终止正在运行的任务，继续吗？",
+                "关闭窗口会终止当前 {} 个运行中的任务，继续吗？".format(
+                    self.job_manager.active_count
+                ),
                 parent=self.root,
             ):
                 return
-            self.job_manager.cancel_current()
+            self.job_manager.cancel_all()
         self._closing = True
         try:
             self.state.set_setting("window_geometry", self.root.geometry(), save=False)

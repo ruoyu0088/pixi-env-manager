@@ -58,17 +58,38 @@ class JobEvent:
 
 
 class JobManager:
-    """Only one foreground job at a time; metadata work uses separate threads."""
+    """Run any number of independent jobs and stream their events."""
 
     def __init__(self) -> None:
         self.events: "queue.Queue[JobEvent]" = queue.Queue()
-        self.current: Optional[Job] = None
+        self.jobs: Dict[int, Job] = {}
         self._lock = threading.Lock()
         self._counter = 0
 
     @property
     def busy(self) -> bool:
-        return self.current is not None
+        with self._lock:
+            return bool(self.jobs)
+
+    @property
+    def active_count(self) -> int:
+        with self._lock:
+            return len(self.jobs)
+
+    def jobs_snapshot(self) -> List[Job]:
+        with self._lock:
+            return list(self.jobs.values())
+
+    def get(self, job_id: int) -> Optional[Job]:
+        with self._lock:
+            return self.jobs.get(job_id)
+
+    def has_mutating(self, exclude: Optional[int] = None) -> bool:
+        with self._lock:
+            return any(
+                job.extra.get("mutating") and job.job_id != exclude
+                for job in self.jobs.values()
+            )
 
     def start(
         self,
@@ -79,8 +100,6 @@ class JobManager:
         extra: Optional[dict] = None,
     ) -> Job:
         with self._lock:
-            if self.current is not None:
-                raise RuntimeError("已有任务正在运行，请先停止或等待完成。")
             self._counter += 1
             job_id = self._counter
 
@@ -113,7 +132,7 @@ class JobManager:
             extra=dict(extra or {}),
         )
         with self._lock:
-            self.current = job
+            self.jobs[job_id] = job
         threading.Thread(target=self._reader, args=(job,), daemon=True).start()
         return job
 
@@ -137,8 +156,7 @@ class JobManager:
                 returncode = -1
             elapsed = job.elapsed
             with self._lock:
-                if self.current is job:
-                    self.current = None
+                self.jobs.pop(job.job_id, None)
             self.events.put(
                 JobEvent(
                     kind="done",
@@ -148,9 +166,9 @@ class JobManager:
                 )
             )
 
-    def cancel_current(self) -> bool:
+    def cancel(self, job_id: int) -> bool:
         with self._lock:
-            job = self.current
+            job = self.jobs.get(job_id)
         if job is None:
             return False
         job.cancelled = True
@@ -177,6 +195,13 @@ class JobManager:
             return True
         except OSError:
             return False
+
+    def cancel_all(self) -> int:
+        count = 0
+        for job in self.jobs_snapshot():
+            if self.cancel(job.job_id):
+                count += 1
+        return count
 
     def drain(self) -> List[JobEvent]:
         events: List[JobEvent] = []
