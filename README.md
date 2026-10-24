@@ -16,6 +16,7 @@ Python 包，任何带有 Tk 8.6 的 Python 3.9+ 环境都可以直接运行。
   - 详情面板显示关键字段；“完整详情”对话框显示依赖、约束、URL 等全部信息
 - **版本检查**：
   - 选中包后查询 conda / PyPI 最新版本
+  - conda 查询同时合并所选平台与 `noarch` 记录，避免纯 Python 包误报旧版本
   - 一键检查当前版本约束内的兼容更新（`pixi update --dry-run --json`，不修改文件）
   - 右键可更新到兼容版本或升级到最新版本
 - **`pixi.toml` 编辑器**：
@@ -37,8 +38,13 @@ Python 包，任何带有 Tk 8.6 的 Python 3.9+ 环境都可以直接运行。
     `clean`、`reinstall`、`run`、`task add`、`task remove`、`info`、`shell`、`init`
   - 每个命令有中文说明、参数表单、实时命令预览和完整 `--help`
   - 手动命令输入栏
-- **输出控制台**：实时 stdout/stderr、退出码、耗时、停止进程树、复制/清空。
+- **多任务输出**：
+  - Task 和 Python 程序可以同时运行多个
+  - 下方每个任务一个输出标签页，各自带停止、复制、清空、关闭按钮
+  - 完成/失败/停止的标签页保留，手动关闭或“关闭已完成”
+  - 会修改环境/清单的 pixi 命令同一时间只允许运行一个
 - **主题**：浅色 / 深色切换。
+- **语言**：中文 / English / 日本語，在设置中切换，重启后生效。
 - **历史与设置**：保存在 `%APPDATA%\PixiEnvManager\state.json`。
 
 ## 运行
@@ -81,7 +87,7 @@ C:\some\python.exe .\pixi_env_manager.py
 - 当前工作区名称 / 路径：点击路径可复制。
 - `环境` 下拉框：切换命名环境；切换后左侧任务和 Python 历史会同步过滤。
 - `刷新`：重新读取环境、包列表和 task。
-- `设置`：Pixi 路径、主题、控制台最大行数、清空历史。
+- `设置`：Pixi 路径、界面语言、主题、控制台最大行数、清空历史。
 
 ### 左侧快速启动
 
@@ -98,10 +104,27 @@ C:\some\python.exe .\pixi_env_manager.py
 
 “检查兼容更新”不会修改任何文件。单包“查询最新版本”会：
 
-- conda 包：调用 `pixi search <包名> --json`
+- conda 包：调用 `pixi search <包名> --json`，合并当前平台和 `noarch` 的结果
 - PyPI 包：访问 `https://pypi.org/pypi/<包名>/json`
 
 如果 PyPI 包来自自定义索引，GUI 会提示无法通过公共 API 检查，而不会伪造结果。
+
+### 多任务与输出
+
+Task 和 Python 程序可以连续启动多个，不会因为已有任务运行而被阻塞。底部输出区
+会为每个任务创建独立标签页：
+
+- 每个标签页有自己的“停止”按钮，只终止该任务及其子进程树
+- 任务完成后，标签页保留输出，可手动关闭
+- “全部停止”用于一次性停止所有 GUI 任务
+- 修改环境/清单的 pixi 命令（add、install、update、clean 等）会串行执行，避免
+  同时写 lock 文件或环境目录
+
+### 界面语言
+
+在“设置 → 界面语言”中选择中文、English 或 日本語，保存后重启程序生效。
+Pixi 自身的 `--help` 和命令输出保持原语言；少量较不常用的提示在日文模式下会
+回退为英文。
 
 ### 编辑器
 
@@ -134,8 +157,9 @@ C:\some\python.exe .\pixi_env_manager.py
 C:\pixi_env\.pixi\envs\default\python.exe -m unittest discover -s tests -v
 ```
 
-测试覆盖版本比较、状态持久化、TOML 高亮、Pixi JSON 解析和 Windows 参数拆分。
-GUI 本身使用标准 Tkinter，不做无显示器的单元测试。
+测试覆盖版本比较、状态持久化、TOML 高亮、Pixi JSON 解析（含 noarch 合并）、
+Windows 参数拆分、国际化模板和多任务命令分类。GUI 本身使用标准 Tkinter，
+不做无显示器的单元测试。
 
 ## 项目结构
 
@@ -145,6 +169,7 @@ pixi-env-manager/
   start.bat                双击启动
   app/
     state.py                设置、环境历史、Python 运行历史
+    i18n.py                 中文/英文/日文翻译层
     pixi.py                 Pixi CLI 封装
     models.py               数据模型
     jobs.py                 后台命令、输出流、停止进程树
@@ -174,3 +199,5 @@ pixi-env-manager/
 - 只有 `pypi.org` 的 PyPI 包能自动查最新版本；私有索引会提示不支持。
 - 交互式 task（例如 Jupyter Lab）建议使用“在终端中运行”，GUI 控制台适合构建类任务。
 - 关闭窗口会终止 GUI 启动的子进程树；在独立终端中启动的程序不受影响。
+- 切换界面语言需要重启程序；正在运行的输出标签不会跨重启保留。
+- 日文界面中少量不常用提示会回退英文，Pixi CLI 原始输出不翻译。
