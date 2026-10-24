@@ -294,6 +294,7 @@ class CommandsTab(ttk.Frame):
         self.current_spec: Optional[CommandSpec] = None
         self.vars: Dict[str, tk.Variable] = {}
         self.field_widgets: Dict[str, tk.Widget] = {}
+        self.shared_environment: Optional[str] = None
         self._help_cache: Dict[str, str] = {}
         self._help_request = 0
 
@@ -530,10 +531,51 @@ class CommandsTab(ttk.Frame):
             return ()
         return tuple(task.name for task in workspace.tasks_for_env(env))
 
-    def _field_default(self, spec: FieldSpec) -> str:
-        if spec.default == "current":
+    def set_context_environment(self, environment: str) -> None:
+        self.shared_environment = environment
+        if not self.current_spec:
+            return
+        if "environment" not in self.vars:
+            return
+        value = self._environment_value(self.current_spec)
+        self.vars["environment"].set(value)
+        widget = self.field_widgets.get("environment")
+        if widget is not None:
+            try:
+                widget.configure(
+                    state="disabled"
+                    if self._base_target(self.current_spec)
+                    else "readonly"
+                )
+            except tk.TclError:
+                pass
+
+    def _base_target(self, spec: CommandSpec) -> bool:
+        return bool(self.app.base_mode and spec.key in ("add", "remove"))
+
+    def _remember_environment(self, variable: tk.Variable) -> None:
+        value = str(variable.get())
+        self.shared_environment = "" if value == i18n.t("（不指定）") else value
+
+    def _environment_value(self, spec: CommandSpec) -> str:
+        placeholder = i18n.t("（不指定）")
+        if self._base_target(spec):
+            return placeholder
+        values = self._env_display_values()
+        if self.shared_environment == "" and spec.key in ("add", "remove"):
+            return placeholder
+        if self.shared_environment and self.shared_environment in values:
+            return str(self.shared_environment)
+        if self.app.environment in values:
+            return self.app.environment
+        return placeholder
+
+    def _field_default(self, field: FieldSpec, spec: CommandSpec) -> str:
+        if field.kind == "env":
+            return self._environment_value(spec)
+        if field.default == "current":
             return self.app.environment or i18n.t("（不指定）")
-        return spec.default
+        return field.default
 
     def _build_form(self, spec: CommandSpec) -> None:
         self.title_var.set(i18n.t(spec.title))
@@ -561,12 +603,16 @@ class CommandsTab(ttk.Frame):
                     if field.kind == "env"
                     else self._platform_values()
                 )
-                var = tk.StringVar(value=self._field_default(field))
+                var = tk.StringVar(value=self._field_default(field, spec))
                 widget = ttk.Combobox(
                     inner,
                     textvariable=var,
                     values=values,
-                    state="readonly",
+                    state=(
+                        "disabled"
+                        if field.kind == "env" and self._base_target(spec)
+                        else "readonly"
+                    ),
                     width=34,
                 )
                 widget.grid(row=row, column=1, sticky="ew", pady=4)
@@ -591,8 +637,11 @@ class CommandsTab(ttk.Frame):
                 self.vars[field.key] = var
                 self.field_widgets[field.key] = widget
             else:
-                var = tk.StringVar(value=self._field_default(field))
+                var = tk.StringVar(value=self._field_default(field, spec))
                 widget = ttk.Entry(inner, textvariable=var, width=field.width)
+                if field.key == "feature" and self._base_target(spec):
+                    var.set("")
+                    widget.configure(state="disabled")
                 widget.grid(row=row, column=1, sticky="ew", pady=4)
                 self.vars[field.key] = var
                 self.field_widgets[field.key] = widget
@@ -609,6 +658,21 @@ class CommandsTab(ttk.Frame):
             else:
                 row += 1
             var.trace_add("write", lambda *_: self._update_preview())
+            if field.key == "environment" and not self._base_target(spec):
+                var.trace_add(
+                    "write",
+                    lambda *_args, variable=var: self._remember_environment(
+                        variable
+                    ),
+                )
+        if self._base_target(spec):
+            ttk.Label(
+                inner,
+                text="基础依赖模式：此命令作用于所有环境。",
+                style="Muted.TLabel",
+                wraplength=520,
+                justify="left",
+            ).grid(row=row, column=1, sticky="w", pady=(4, 0))
         inner.columnconfigure(1, weight=1)
         self.form_scroll.canvas.yview_moveto(0)
         if spec.terminal:
@@ -876,6 +940,10 @@ class CommandsTab(ttk.Frame):
         if error:
             messagebox.showinfo("命令参数", error, parent=self)
             return
+        if spec.key == "remove":
+            args = self._resolve_remove_scope(args)
+            if args is None:
+                return
         if not args:
             return
         if spec.terminal:
@@ -890,6 +958,81 @@ class CommandsTab(ttk.Frame):
                 dangerous=spec.dangerous,
                 use_manifest=spec.use_manifest,
             )
+
+    def _resolve_remove_scope(self, args: List[str]) -> Optional[List[str]]:
+        """Avoid ``remove --environment default`` for a base dependency."""
+        workspace = self.app.workspace
+        if workspace is None or "--feature" in args:
+            return args
+        target = ""
+        for index, value in enumerate(args):
+            if value == "--environment" and index + 1 < len(args):
+                target = args[index + 1]
+                break
+        names = split_user_args(self._value("specs"))
+        if not names:
+            return args
+        scopes = workspace.scopes
+        base_names = []
+        env_names = []
+        other_names = []
+        for name in names:
+            scope = scopes.scope_for(name)
+            if scope == "base":
+                base_names.append(name)
+            elif scope.startswith("env:"):
+                env_names.append(name)
+            else:
+                other_names.append(name)
+        if not target:
+            if base_names and (env_names or other_names):
+                messagebox.showinfo(
+                    "删除作用域冲突",
+                    i18n.t("同一命令不能同时删除基础依赖和环境专属依赖。"),
+                    parent=self,
+                )
+                return None
+            if not base_names:
+                messagebox.showinfo(
+                    "删除基础依赖",
+                    i18n.t("该包不在基础依赖中：{}").format(", ".join(names)),
+                    parent=self,
+                )
+                return None
+            if not messagebox.askyesno(
+                "删除基础依赖",
+                i18n.t(
+                    "{} 属于基础依赖，删除后所有环境都会受影响。\n\n是否从基础依赖中删除？"
+                ).format(", ".join(base_names)),
+                parent=self,
+            ):
+                return None
+            return args
+        if base_names and (env_names or other_names):
+            messagebox.showinfo(
+                "删除作用域冲突",
+                "{}\n{}\n{}".format(
+                    i18n.t("同一命令不能同时删除基础依赖和环境专属依赖。"),
+                    i18n.t("基础依赖：{}").format(", ".join(base_names)),
+                    i18n.t("其他依赖：{}").format(
+                        ", ".join(env_names + other_names)
+                    ),
+                ),
+                parent=self,
+            )
+            return None
+        if not base_names:
+            return args
+        if not messagebox.askyesno(
+            "删除基础依赖",
+            i18n.t(
+                "{} 属于基础依赖，删除后所有环境都会受影响。\n\n是否从基础依赖中删除？"
+            ).format(", ".join(base_names)),
+            parent=self,
+        ):
+            return None
+        index = args.index("--environment")
+        return args[:index] + args[index + 2 :]
 
     def _command_history(self) -> Tuple[str, ...]:
         history = self.app.state.get_setting("command_history", [])

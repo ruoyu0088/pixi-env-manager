@@ -53,6 +53,17 @@ class StateTests(unittest.TestCase):
         self.assertEqual(len(state.python_runs(self.manifest, "default")), 1)
         self.assertEqual(len(state.python_runs(self.manifest, "test")), 1)
 
+    def test_base_mode_is_per_workspace(self):
+        state = AppState(self.path)
+        self.assertFalse(state.is_base_mode(self.manifest))
+        state.set_base_mode(self.manifest, True)
+        self.assertTrue(state.is_base_mode(self.manifest))
+        self.assertFalse(state.is_base_mode(self.manifest.parent / "other.toml"))
+        reloaded = AppState(self.path)
+        self.assertTrue(reloaded.is_base_mode(self.manifest))
+        reloaded.set_base_mode(self.manifest, False)
+        self.assertFalse(AppState(self.path).is_base_mode(self.manifest))
+
     def test_remove_python_runs_for_environment(self):
         state = AppState(self.path)
         script = Path(self.temp.name) / "plot.py"

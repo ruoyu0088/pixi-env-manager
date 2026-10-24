@@ -8,6 +8,7 @@ from tkinter import messagebox, ttk
 from typing import Dict, List, Optional, Tuple
 
 from .. import i18n
+from ..manifest import normalize_package_name
 from ..models import Package, WorkspaceData
 from ..util import format_size, truncate_text
 from ..versions import compare_versions
@@ -21,6 +22,7 @@ class LibrariesTab(ttk.Frame):
         self.colors = colors
         self.workspace: Optional[WorkspaceData] = None
         self.env_name = ""
+        self.base_mode = False
         self.packages: List[Package] = []
         self.visible: Dict[str, Package] = {}
         self._current_packages: Dict[str, Package] = {}
@@ -111,7 +113,17 @@ class LibrariesTab(ttk.Frame):
         table_frame = ttk.Frame(self.body_pane)
         self.table_frame = table_frame
         self.body_pane.add(table_frame, weight=3)
-        columns = ("name", "version", "latest", "status", "kind", "spec", "source", "size")
+        columns = (
+            "name",
+            "version",
+            "latest",
+            "status",
+            "kind",
+            "scope",
+            "spec",
+            "source",
+            "size",
+        )
         self.tree = ttk.Treeview(
             table_frame, columns=columns, show="headings", selectmode="extended"
         )
@@ -121,19 +133,21 @@ class LibrariesTab(ttk.Frame):
             "latest": "最新版本",
             "status": "状态",
             "kind": "类型",
+            "scope": "作用域",
             "spec": "请求约束",
             "source": "来源",
             "size": "大小",
         }
         widths = {
-            "name": 230,
-            "version": 110,
-            "latest": 110,
-            "status": 100,
-            "kind": 70,
-            "spec": 190,
-            "source": 220,
-            "size": 80,
+            "name": 210,
+            "version": 105,
+            "latest": 105,
+            "status": 95,
+            "kind": 65,
+            "scope": 105,
+            "spec": 180,
+            "source": 200,
+            "size": 75,
         }
         for column in columns:
             self.tree.heading(
@@ -198,6 +212,7 @@ class LibrariesTab(ttk.Frame):
             ("license", "许可证", 1, 6, 1),
             ("source", "来源", 2, 0, 3),
             ("file", "文件", 2, 4, 3),
+            ("extra", "说明", 3, 0, 6),
         ]
         for key, label, row, column, span in positions:
             ttk.Label(
@@ -285,15 +300,52 @@ class LibrariesTab(ttk.Frame):
         self.tree.tag_configure("pypi", foreground=colors["accent"])
 
     def set_workspace(
-        self, workspace: Optional[WorkspaceData], env_name: str
+        self,
+        workspace: Optional[WorkspaceData],
+        env_name: str,
+        base_mode: bool = False,
     ) -> None:
         self.workspace = workspace
         self.env_name = env_name
+        self.base_mode = base_mode
         self._workspace_token += 1
-        self.packages = workspace.packages_for_env(env_name) if workspace else []
+        if not workspace:
+            self.packages = []
+        elif base_mode:
+            self.packages = self._base_packages(workspace)
+        else:
+            self.packages = workspace.packages_for_env(env_name)
+            for package in self.packages:
+                package.scope = workspace.scopes.scope_for(package.name)
         self._detail_key = None
         self._update_headline()
         self.refresh_view()
+
+    def _base_packages(self, workspace: WorkspaceData) -> List[Package]:
+        installed = {
+            normalize_package_name(package.name): package
+            for package in workspace.packages_for_env("default")
+        }
+        packages: List[Package] = []
+        for spec in workspace.scopes.base_packages():
+            package = installed.get(normalize_package_name(spec.name))
+            if package is not None:
+                package.is_explicit = True
+                package.scope = "base"
+                packages.append(package)
+            else:
+                packages.append(
+                    Package(
+                        name=spec.name,
+                        version="—",
+                        kind=spec.kind,
+                        is_explicit=True,
+                        requested_spec=spec.spec,
+                        installed=False,
+                        scope="base",
+                    )
+                )
+        return packages
 
     def set_loading(self, message: str) -> None:
         self.status_var.set(message)
@@ -303,8 +355,11 @@ class LibrariesTab(ttk.Frame):
         if not self.workspace:
             self.headline_var.set("未打开环境")
             return
+        environment = i18n.t("基础依赖") if self.base_mode else self.env_name
         self.headline_var.set(
-            "{} / {}".format(self.workspace.name or self.workspace.root.name, self.env_name)
+            "{} / {}".format(
+                self.workspace.name or self.workspace.root.name, environment
+            )
         )
 
     def refresh_view(self) -> None:
@@ -318,9 +373,19 @@ class LibrariesTab(ttk.Frame):
             return
         all_packages = self.packages
         user_count = sum(1 for package in all_packages if package.is_explicit)
-        self.user_radio.configure(text="仅用户安装 ({})".format(user_count))
-        self.all_radio.configure(text="全部库 ({})".format(len(all_packages)))
-        mode = self.filter_var.get()
+        if self.base_mode:
+            self.filter_var.set("user")
+            self.user_radio.configure(text="基础依赖 ({})".format(user_count))
+            self.all_radio.configure(
+                text="全部库 ({})".format(len(all_packages)), state="disabled"
+            )
+            mode = "user"
+        else:
+            self.user_radio.configure(text="仅用户安装 ({})".format(user_count))
+            self.all_radio.configure(
+                text="全部库 ({})".format(len(all_packages)), state="normal"
+            )
+            mode = self.filter_var.get()
         query = self.search_var.get().strip().lower()
         kind = self.kind_var.get()
         selected = set(self.tree.selection())
@@ -371,6 +436,7 @@ class LibrariesTab(ttk.Frame):
                     package.latest or "",
                     package.status_text,
                     "PyPI" if package.kind.lower() == "pypi" else "Conda",
+                    package.scope_text,
                     package.requested_spec or "",
                     package.short_source(),
                     format_size(package.size),
@@ -380,7 +446,8 @@ class LibrariesTab(ttk.Frame):
         for key in selected:
             if self.tree.exists(key):
                 self.tree.selection_add(key)
-        error = self.workspace.package_errors.get(self.env_name)
+        error_key = "default" if self.base_mode else self.env_name
+        error = self.workspace.package_errors.get(error_key)
         if error:
             self.status_var.set(
                 "读取失败：{}  （可点击“安装环境”或“刷新”）".format(
@@ -388,6 +455,11 @@ class LibrariesTab(ttk.Frame):
                 )
             )
             self.status_label.configure(style="Danger.TLabel")
+        elif self.base_mode:
+            self.status_var.set(
+                "基础依赖 {} 个 · 所有环境共享".format(len(filtered))
+            )
+            self.status_label.configure(style="Muted.TLabel")
         else:
             self.status_var.set(
                 "显示 {} / {} 个包 · 用户显式依赖 {} 个".format(
@@ -410,6 +482,8 @@ class LibrariesTab(ttk.Frame):
                 return package.status_text
             if column == "kind":
                 return package.kind
+            if column == "scope":
+                return package.scope_text
             if column == "spec":
                 return package.requested_spec
             if column == "source":
@@ -467,10 +541,14 @@ class LibrariesTab(ttk.Frame):
             "file": truncate_text(package.file_name, 70) or "—",
             "extra": "",
         }
+        extra = "{}: {}".format(i18n.t("作用域"), package.scope_text)
         if package.latest_error:
             values["latest"] = "查询失败: " + truncate_text(package.latest_error, 55)
         elif package.compatible_to:
-            values["extra"] = "兼容更新: {}".format(package.compatible_to)
+            extra += " · {}: {}".format(
+                i18n.t("兼容更新"), package.compatible_to
+            )
+        values["extra"] = extra
         for key, value in values.items():
             self.detail_vars[key].set(value)
         self._detail_package = package

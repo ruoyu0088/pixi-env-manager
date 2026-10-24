@@ -54,6 +54,7 @@ class MainWindow:
         self.ui_queue: "queue.Queue[Callable[[], None]]" = queue.Queue()
         self.workspace: Optional[WorkspaceData] = None
         self.environment: str = ""
+        self.base_mode = False
         self._loading = False
         self._session = 0
         self._closing = False
@@ -231,6 +232,7 @@ class MainWindow:
             if self.workspace is not None
             and bool(self.environment)
             and self.environment != "default"
+            and not self.base_mode
             and not busy
             else "disabled"
         )
@@ -422,10 +424,18 @@ class MainWindow:
                 if preferred_env in workspace.env_names
                 else (workspace.default_env().name if workspace.default_env() else "default")
             )
+            self.base_mode = self.state.is_base_mode(workspace.manifest)
+            if preferred_env and preferred_env != "default":
+                self.base_mode = False
+                self.state.set_base_mode(workspace.manifest, False)
+            if self.base_mode:
+                default = workspace.default_env()
+                self.environment = default.name if default else self.environment
             if add_recent:
                 self.state.add_recent(
                     workspace.manifest, self.environment, workspace.name
                 )
+            self.commands_tab.set_context_environment(self.environment)
             self._apply_workspace()
             self.notebook.select(self.overview_tab)
             self._rebuild_recent_menu()
@@ -478,31 +488,56 @@ class MainWindow:
         if self.environment not in workspace.env_names:
             default = workspace.default_env()
             self.environment = default.name if default else ""
+        if self.base_mode:
+            default = workspace.default_env()
+            if default is not None:
+                self.environment = default.name
         self.workspace_name_var.set(
             truncate_text(workspace.name or workspace.root.name, 30)
         )
         path_text = shorten_path(str(workspace.manifest), 62)
         self.workspace_path_var.set(path_text)
         self.path_tooltip.text = str(workspace.manifest)
-        self.env_combo.configure(values=workspace.env_names)
-        self.env_var.set(self.environment)
+        base_label = self._base_label()
+        self.env_combo.configure(values=(base_label, *workspace.env_names))
+        self.env_var.set(base_label if self.base_mode else self.environment)
         try:
             self.notebook.tab(self.editor_tab, text=workspace.manifest.name)
         except tk.TclError:
             pass
+        display_env = base_label if self.base_mode else self.environment
         self.root.title(
             "Pixi 环境管理器 - {} [{}]".format(
-                workspace.name or workspace.root.name, self.environment
+                workspace.name or workspace.root.name, display_env
             )
         )
         self.overview_tab.set_workspace(workspace, self.environment)
-        self.libraries_tab.set_workspace(workspace, self.environment)
-        self.tasks_tab.set_workspace(workspace, self.environment)
-        self.python_tab.set_workspace(workspace, self.environment)
+        self.libraries_tab.set_workspace(
+            workspace, self.environment, base_mode=self.base_mode
+        )
+        self.tasks_tab.set_workspace(
+            workspace, self.environment, base_mode=self.base_mode
+        )
+        self.python_tab.set_workspace(
+            workspace, self.environment, base_mode=self.base_mode
+        )
         self.commands_tab.refresh_context()
         self.editor_tab.set_workspace(workspace)
         self.sidebar.set_workspace(workspace, self.environment)
         self._set_actions_enabled(True)
+        if self.base_mode:
+            self.set_status(
+                "基础依赖视图（所有环境共享） · Task/Python 使用 {} 环境".format(
+                    self.environment
+                )
+            )
+        elif self.environment == "default":
+            self.set_status(
+                "当前环境: default · add/remove 仅影响 default；共享依赖请切换到基础依赖"
+            )
+
+    def _base_label(self) -> str:
+        return i18n.t("基础依赖")
 
     def refresh_current(self, preferred_env: Optional[str] = None) -> None:
         if not self.workspace or self._loading:
@@ -532,6 +567,15 @@ class MainWindow:
                 self.environment = default.name if default else ""
             else:
                 self.environment = target_hint
+            if preferred_env is not None:
+                self.base_mode = False
+                self.state.set_base_mode(new_workspace.manifest, False)
+            elif self.base_mode:
+                default = new_workspace.default_env()
+                if default is not None:
+                    self.environment = default.name
+            if preferred_env is not None:
+                self.commands_tab.set_context_environment(self.environment)
             self.state.add_recent(
                 new_workspace.manifest, self.environment, new_workspace.name
             )
@@ -554,24 +598,94 @@ class MainWindow:
 
     def _on_env_selected(self, _event=None) -> None:
         value = self.env_var.get().strip()
+        if value == self._base_label():
+            self.set_base_mode(True)
+            return
         if value and value != self.environment:
             self.set_environment(value)
+        elif self.base_mode:
+            self.set_environment(self.environment)
+
+    def set_base_mode(self, enabled: bool) -> None:
+        if self._loading or self.workspace is None:
+            return
+        if enabled == self.base_mode:
+            return
+        default = self.workspace.default_env()
+        if default is None:
+            return
+        self.base_mode = enabled
+        self.environment = default.name
+        self.state.set_base_mode(self.workspace.manifest, enabled)
+        self.commands_tab.set_context_environment(self.environment)
+        if enabled:
+            self.state.add_recent(
+                self.workspace.manifest, self.environment, self.workspace.name
+            )
+        self.env_var.set(
+            self._base_label() if enabled else self.environment
+        )
+        self.overview_tab.set_workspace(self.workspace, self.environment)
+        self.libraries_tab.set_workspace(
+            self.workspace, self.environment, base_mode=enabled
+        )
+        self.tasks_tab.set_workspace(
+            self.workspace, self.environment, base_mode=enabled
+        )
+        self.python_tab.set_workspace(
+            self.workspace, self.environment, base_mode=enabled
+        )
+        self.sidebar.set_workspace(self.workspace, self.environment)
+        self.commands_tab.refresh_context()
+        self._rebuild_recent_menu()
+        display_env = self._base_label() if enabled else self.environment
+        self.root.title(
+            "Pixi 环境管理器 - {} [{}]".format(
+                self.workspace.name or self.workspace.root.name, display_env
+            )
+        )
+        self._update_env_manage_state()
+        if enabled:
+            self.set_status(
+                "基础依赖视图（所有环境共享） · Task/Python 使用 {} 环境".format(
+                    self.environment
+                )
+            )
+        else:
+            self.set_status(
+                "当前环境: default · add/remove 仅影响 default；共享依赖请切换到基础依赖"
+                if self.environment == "default"
+                else "当前环境: {}".format(self.environment)
+            )
 
     def set_environment(self, env_name: str) -> None:
         if self._loading:
-            self.env_var.set(self.environment)
+            self.env_var.set(
+                self._base_label() if self.base_mode else self.environment
+            )
             return
-        if not self.workspace or env_name == self.environment:
+        if not self.workspace:
+            return
+        if env_name == self.environment and not self.base_mode:
             return
         if env_name not in self.workspace.env_names:
             return
+        was_base = self.base_mode
+        self.base_mode = False
+        if was_base:
+            self.state.set_base_mode(self.workspace.manifest, False)
         self.environment = env_name
         self.env_var.set(env_name)
+        self.commands_tab.set_context_environment(env_name)
         self.state.add_recent(self.workspace.manifest, env_name, self.workspace.name)
         self.overview_tab.set_workspace(self.workspace, env_name)
         self.libraries_tab.set_workspace(self.workspace, env_name)
-        self.tasks_tab.set_workspace(self.workspace, env_name)
-        self.python_tab.set_workspace(self.workspace, env_name)
+        self.tasks_tab.set_workspace(
+            self.workspace, env_name, base_mode=False
+        )
+        self.python_tab.set_workspace(
+            self.workspace, env_name, base_mode=False
+        )
         self.commands_tab.refresh_context()
         self.sidebar.set_workspace(self.workspace, env_name)
         self._rebuild_recent_menu()
@@ -588,7 +702,11 @@ class MainWindow:
             self._load_env_packages(env_name)
         else:
             self._set_actions_enabled(True)
-            self.set_status("当前环境: {}".format(env_name))
+            self.set_status(
+                "当前环境: default · add/remove 仅影响 default；共享依赖请切换到基础依赖"
+                if env_name == "default"
+                else "当前环境: {}".format(env_name)
+            )
 
     def _load_env_packages(self, env_name: str) -> None:
         if not self.workspace:
@@ -997,7 +1115,7 @@ class MainWindow:
     def open_remove_environment(self) -> None:
         if not self._manifest_edit_ready():
             return
-        if self.workspace is None or not self.environment:
+        if self.workspace is None or not self.environment or self.base_mode:
             return
         if self.environment == "default":
             messagebox.showinfo(

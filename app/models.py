@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from .i18n import t
+from .manifest import ManifestScopes
 from .versions import compare_versions
 
 
@@ -52,6 +53,8 @@ class Package:
     latest_error: str = ""
     checking_latest: bool = False
     compatible_to: Optional[str] = None
+    scope: str = ""
+    installed: bool = True
 
     @property
     def key(self) -> str:
@@ -83,7 +86,21 @@ class Package:
         return compare_versions(self.latest, self.version)
 
     @property
+    def scope_text(self) -> str:
+        if self.scope == "base":
+            return t("基础")
+        if self.scope.startswith("feature:"):
+            return t("feature:{}").format(self.scope.split(":", 1)[1])
+        if self.scope.startswith("env:"):
+            return t("环境:{}").format(self.scope.split(":", 1)[1])
+        if self.scope == "transitive":
+            return t("传递")
+        return self.scope or "—"
+
+    @property
     def status_text(self) -> str:
+        if not self.installed:
+            return t("未安装")
         if self.checking_latest:
             return t("查询中…")
         if self.latest_error:
@@ -187,6 +204,7 @@ class WorkspaceData:
     # missing / fresh / stale / unknown.  Determined by pixi lock --check
     # when the manifest is newer than the lock file.
     lock_state: str = "unknown"
+    scopes: ManifestScopes = field(default_factory=ManifestScopes)
 
     @property
     def env_names(self) -> List[str]:

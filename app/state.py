@@ -127,6 +127,26 @@ class AppState:
         if save:
             self.save()
 
+    def is_base_mode(self, manifest: Path) -> bool:
+        normalized = _norm_path(manifest)
+        values = self.settings.get("base_mode_workspaces")
+        if not isinstance(values, list):
+            return False
+        return any(_norm_path(str(item)) == normalized for item in values)
+
+    def set_base_mode(self, manifest: Path, enabled: bool) -> None:
+        normalized = _norm_path(manifest)
+        values = [
+            str(item)
+            for item in self.settings.get("base_mode_workspaces", [])
+            if isinstance(item, str) and _norm_path(item) != normalized
+        ]
+        if enabled:
+            values.append(str(manifest))
+            values = values[-30:]
+        self.settings["base_mode_workspaces"] = values
+        self.save()
+
     def add_command_history(self, command: str) -> None:
         command = command.strip()
         if not command:

@@ -29,8 +29,13 @@ class TasksTab(ttk.Frame):
         ttk.Label(
             header, textvariable=self.headline_var, style="Muted.TLabel"
         ).pack(side="left", padx=(10, 0), pady=(6, 0))
+        self.base_hint_var = tk.StringVar(value="")
+        self.base_hint = ttk.Label(
+            self, textvariable=self.base_hint_var, style="Muted.TLabel"
+        )
 
         toolbar = ttk.Frame(self)
+        self.toolbar = toolbar
         toolbar.pack(fill="x", pady=(10, 6))
         ttk.Label(toolbar, text="搜索", style="Muted.TLabel").pack(
             side="left", padx=(0, 4)
@@ -149,10 +154,21 @@ class TasksTab(ttk.Frame):
         self.tree.tag_configure("args", foreground=colors["warning"])
 
     def set_workspace(
-        self, workspace: Optional[WorkspaceData], env_name: str
+        self,
+        workspace: Optional[WorkspaceData],
+        env_name: str,
+        base_mode: bool = False,
     ) -> None:
         self.workspace = workspace
         self.env_name = env_name
+        if base_mode:
+            self.base_hint_var.set(
+                "基础依赖视图：任务仍使用 {} 环境运行".format(env_name)
+            )
+            self.base_hint.pack(fill="x", pady=(6, 0), before=self.toolbar)
+        else:
+            self.base_hint_var.set("")
+            self.base_hint.pack_forget()
         self.tasks = workspace.tasks_for_env(env_name) if workspace else []
         if workspace:
             self.headline_var.set(

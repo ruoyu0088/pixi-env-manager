@@ -14,6 +14,7 @@ from functools import cmp_to_key
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from .manifest import read_manifest_scopes
 from .models import EnvInfo, Package, TaskInfo, WorkspaceData, parse_packages, parse_tasks
 from .versions import compare_versions
 
@@ -376,6 +377,7 @@ class PixiClient:
             workspace.envs.append(EnvInfo(name="default"))
         if not workspace.platform:
             workspace.platform = workspace.envs[0].platform
+        workspace.scopes = read_manifest_scopes(manifest)
 
         try:
             tasks_data = self.task_list(manifest)
@@ -398,6 +400,13 @@ class PixiClient:
                 )
             except PixiError as exc:
                 workspace.package_errors[selected] = str(exc)
+            if selected != "default" and "default" in workspace.env_names:
+                try:
+                    workspace.packages_by_env["default"] = self.packages(
+                        manifest, "default"
+                    )
+                except PixiError as exc:
+                    workspace.package_errors["default"] = str(exc)
 
         try:
             workspace.lock_state = self.lock_state(manifest)
