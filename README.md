@@ -8,6 +8,8 @@ Python 包，任何带有 Tk 8.6 的 Python 3.9+ 环境都可以直接运行。
 - **打开 Pixi 环境**：选择 `pixi.toml`、`pyproject.toml` 或工作区目录。
 - **最近打开**：顶部环境管理条记录工作区 + 环境名，下次启动自动恢复最近环境。
 - **环境切换**：识别工作区中的所有命名环境，在顶部下拉框切换。
+- **新建工作区**：可以从空目录直接创建新的 `pixi.toml` 工作区；支持指定频道和平台，
+  创建后自动进入基础依赖视图。
 - **基础依赖视图**：顶部还可以选择“基础依赖”（default feature），只列出
   `[dependencies]` / `[pypi-dependencies]` 中的共享依赖；默认环境视图则显示完整环境，
   并在“作用域”列标出基础、feature、环境专属和传递依赖。
@@ -90,6 +92,12 @@ C:\some\python.exe .\pixi_env_manager.py
 - `打开环境`：选择清单文件或工作区目录。
 - `最近打开`：历史工作区 + 环境，点击直接切换。
 - 当前工作区名称 / 路径：点击路径可复制。
+- `打开环境`：
+  - 选择已有 `pixi.toml` / `pyproject.toml` 或工作区目录直接打开
+  - 选择没有清单的空目录或输入不存在的目录时，会提示创建新 Pixi 工作区
+  - `新建工作区…` 按钮可以直接打开创建向导
+  - 新建向导只创建 `pixi.toml`，支持多个频道和平台；工作区名称由目录名决定
+  - 创建过程在输出标签页中显示，成功后自动打开并进入基础依赖视图
 - `环境` 下拉框：切换命名环境；切换后左侧任务和 Python 历史会同步过滤。
   - `基础依赖`：只显示共享的基础依赖，`add` / `remove` 不带 `--environment`，
     作用于所有环境；Task/Python 仍使用 default 环境运行。
@@ -226,3 +234,7 @@ pixi-env-manager/
   GUI 会改为不带 `--environment` 的基础依赖删除命令。
 - 命令中心的 Environment 选项与顶部选择同步；在基础依赖模式下，add/remove
   的 Environment 固定为“不指定”，其他命令仍使用 default。
+- 新建工作区只支持 `pixi.toml`。已有 `pyproject.toml` 的目录不会用新建向导覆盖；
+  已有 Pixi 清单时请直接打开。
+- `pixi init` 会追加 `.gitignore`、`.gitattributes` 和 `pixi.toml`，不会删除目录中
+  已有文件；非空目录会先提示确认。
