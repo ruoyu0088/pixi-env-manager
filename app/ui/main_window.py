@@ -60,6 +60,27 @@ class MainWindow:
         self._loading = False
         self._session = 0
         self._closing = False
+        self._layout_ready = False
+        self._layout_attempts = 0
+        try:
+            self._sidebar_width = int(
+                self.state.get_setting("layout_sidebar_width", 300) or 300
+            )
+        except (TypeError, ValueError):
+            self._sidebar_width = 300
+        try:
+            self._console_height = int(
+                self.state.get_setting("layout_console_height", 245) or 245
+            )
+        except (TypeError, ValueError):
+            self._console_height = 245
+        self._sidebar_collapsed = bool(
+            self.state.get_setting("layout_sidebar_collapsed", False)
+        )
+        self._console_collapsed = bool(
+            self.state.get_setting("layout_console_collapsed", False)
+        )
+        self._layout_save_after: Optional[str] = None
 
         self.root.title("Pixi 环境管理器")
         self.root.minsize(1040, 680)
@@ -69,11 +90,13 @@ class MainWindow:
         i18n.localize_widget_tree(self.root)
         self.root.bind("<Control-o>", lambda _event: self.open_environment_dialog())
         self.root.bind("<F5>", lambda _event: self.refresh_current())
+        self.root.bind("<Control-b>", self._toggle_sidebar_event)
+        self.root.bind("<Control-l>", self._toggle_console_event)
         self._apply_theme(str(self.state.get_setting("theme", "light")))
         self._rebuild_recent_menu()
         self._refresh_pixi_badge()
         self.root.after(50, self._poll)
-        self.root.after(150, self._set_initial_sashes)
+        self.root.after(200, self._restore_layout)
 
         if initial_path:
             self.root.after(150, lambda: self.open_environment(initial_path))
@@ -205,12 +228,143 @@ class MainWindow:
 
         self._set_actions_enabled(False)
 
-    def _set_initial_sashes(self) -> None:
+    def _restore_layout(self) -> None:
+        if self._layout_ready:
+            return
+        self.root.update_idletasks()
+        width = self.top_pane.winfo_width()
+        height = self.main_pane.winfo_height()
+        if width < 400 or height < 300:
+            self._layout_attempts += 1
+            if self._layout_attempts < 20:
+                self.root.after(50, self._restore_layout)
+            return
+        sidebar_width = max(180, min(int(self._sidebar_width), width - 400))
+        console_height = max(100, min(int(self._console_height), height - 200))
+        try:
+            self.top_pane.sashpos(
+                0, 0 if self._sidebar_collapsed else sidebar_width
+            )
+            self.main_pane.sashpos(
+                0,
+                height - 1
+                if self._console_collapsed
+                else height - console_height,
+            )
+        except tk.TclError:
+            self._layout_attempts += 1
+            if self._layout_attempts < 20:
+                self.root.after(50, self._restore_layout)
+            return
+        self._sidebar_width = sidebar_width
+        self._console_height = console_height
+        self._layout_ready = True
+        self.top_pane.bind(
+            "<ButtonRelease-1>", self._schedule_layout_save, add="+"
+        )
+        self.main_pane.bind(
+            "<ButtonRelease-1>", self._schedule_layout_save, add="+"
+        )
+
+    def _schedule_layout_save(self, _event=None) -> None:
+        if self._layout_save_after is not None:
+            try:
+                self.root.after_cancel(self._layout_save_after)
+            except tk.TclError:
+                pass
+        self._layout_save_after = self.root.after(
+            300, self._save_layout_state
+        )
+
+    def _save_layout_state(self, save: bool = True) -> None:
+        self._layout_save_after = None
+        if not self._layout_ready:
+            return
+        try:
+            sidebar_position = self.top_pane.sashpos(0)
+            sidebar_width = self.top_pane.winfo_width()
+            if sidebar_position > 80:
+                self._sidebar_width = sidebar_position
+                self._sidebar_collapsed = False
+            elif sidebar_position <= 1:
+                self._sidebar_collapsed = True
+            else:
+                self._sidebar_width = max(180, sidebar_position)
+
+            main_height = self.main_pane.winfo_height()
+            console_position = self.main_pane.sashpos(0)
+            console_height = main_height - console_position
+            if console_height > 40:
+                self._console_height = console_height
+                self._console_collapsed = False
+            elif not self._console_collapsed:
+                self._console_collapsed = True
+
+            self.state.set_setting(
+                "layout_sidebar_width", int(self._sidebar_width), save=False
+            )
+            self.state.set_setting(
+                "layout_console_height", int(self._console_height), save=False
+            )
+            self.state.set_setting(
+                "layout_sidebar_collapsed", self._sidebar_collapsed, save=False
+            )
+            self.state.set_setting(
+                "layout_console_collapsed", self._console_collapsed, save=False
+            )
+            if save:
+                self.state.save()
+        except (tk.TclError, ValueError):
+            pass
+
+    def _toggle_sidebar_event(self, _event=None):
+        self.toggle_sidebar()
+        return "break"
+
+    def _toggle_console_event(self, _event=None):
+        self.toggle_console()
+        return "break"
+
+    def toggle_sidebar(self) -> None:
+        if not self._layout_ready:
+            return
+        try:
+            current = self.top_pane.sashpos(0)
+            if current <= 1:
+                width = self.top_pane.winfo_width()
+                target = max(180, min(int(self._sidebar_width), width - 400))
+                self.top_pane.sashpos(0, target)
+                self._sidebar_width = target
+                self._sidebar_collapsed = False
+                self.set_status("已展开侧边栏")
+            else:
+                self._sidebar_width = max(180, current)
+                self.top_pane.sashpos(0, 0)
+                self._sidebar_collapsed = True
+                self.set_status("已折叠侧边栏（Ctrl+B）")
+            self._save_layout_state(save=True)
+        except tk.TclError:
+            pass
+
+    def toggle_console(self) -> None:
+        if not self._layout_ready:
+            return
         try:
             height = self.main_pane.winfo_height()
-            if height > 400:
-                self.main_pane.sashpos(0, max(320, height - 245))
-            self.top_pane.sashpos(0, 300)
+            current = self.main_pane.sashpos(0)
+            console_height = height - current
+            if self._console_collapsed or console_height <= 40:
+                target = max(100, min(int(self._console_height), height - 200))
+                self.main_pane.sashpos(0, height - target)
+                self._console_height = target
+                self._console_collapsed = False
+                self.set_status("已展开输出栏")
+            else:
+                self._console_height = max(100, console_height)
+                self.main_pane.sashpos(0, max(1, height - 1))
+                self._console_collapsed = True
+                self.set_status("已折叠输出栏（Ctrl+L）")
+            self._save_layout_state(save=True)
         except tk.TclError:
             pass
 
@@ -1694,6 +1848,7 @@ class MainWindow:
             self.job_manager.cancel_all()
         self._closing = True
         try:
+            self._save_layout_state(save=False)
             self.state.set_setting("window_geometry", self.root.geometry(), save=False)
             self.state.set_setting("theme", self.theme.name, save=False)
             self.state.set_setting("console_max_lines", self.console.max_lines, save=False)
