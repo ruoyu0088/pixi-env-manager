@@ -60,6 +60,7 @@ Python 包，任何带有 Tk 8.6 的 Python 3.9+ 环境都可以直接运行。
   - 会修改环境/清单的 pixi 命令同一时间只允许运行一个
 - **主题**：浅色 / 深色切换。
 - **语言**：中文 / English / 日本語，在设置中切换，重启后生效。
+- **Web UI**：可选的 Flask 界面，支持局域网访问、单密码登录、包管理、任务输出和编辑器。
 - **历史与设置**：保存在 `%APPDATA%\PixiEnvManager\state.json`。
 
 ## 运行
@@ -92,6 +93,55 @@ py -3 .\pixi_env_manager.py C:\pixi_env\pixi.toml
 ```powershell
 C:\some\python.exe .\pixi_env_manager.py
 ```
+
+### Web 界面
+
+![Web UI](docs/screenshot-web-en.png)
+
+默认启动 Tk 界面；加 `--web` 启动 Flask Web UI：
+
+首次使用 Web 模式需要 Flask：
+
+```powershell
+pip install -r requirements.txt
+```
+
+```powershell
+# 首次设置密码（本地终端隐藏输入）
+start.bat --web --set-password
+
+# 只允许本机访问
+start.bat --web --host 127.0.0.1 --port 8010
+
+# 允许局域网访问
+start.bat --web --host 0.0.0.0 --port 8010
+```
+
+浏览器打开 `http://本机IP:8010`，使用设置的密码登录。所有 Web 访问（包括
+localhost）都需要登录。
+
+- 默认只绑定 `127.0.0.1`；`--host 0.0.0.0` 才开放局域网
+- 首版使用 HTTP，不加密；只建议在可信局域网使用
+- 没有设置密码时 Web 服务拒绝启动
+- Web 和 Tk 共用 `PixiClient`、`JobManager`、`app/state.py` 以及 `locales/*.json`
+- Web 的“在终端中运行”会在运行服务器的电脑上打开本地终端
+- Web 使用 Flask；Tk 模式仍然只依赖标准库
+- 密码以 PBKDF2-SHA256 哈希保存，默认会话 7 天
+- 登录有 CSRF 防护和失败次数限速
+- 忘记密码时在服务器本机重新执行 `start.bat --web --set-password`
+- 首版不提供 Web 修改密码；密码和会话可能被局域网嗅探，因此只建议可信网络
+
+### 多台电脑
+
+每台需要管理的电脑分别启动自己的 Web 服务：
+
+```text
+电脑 A: start.bat --web --host 0.0.0.0 --port 8010
+电脑 B: start.bat --web --host 0.0.0.0 --port 8010
+```
+
+浏览器分别访问 `http://电脑A-IP:8010`、`http://电脑B-IP:8010`。没有中心服务器，
+也没有跨机器远程执行；每个 Web 服务只管理该电脑本地的 Pixi 环境。
 
 ## 使用说明
 
@@ -193,7 +243,7 @@ Task 和 Python 程序可以连续启动多个，不会因为已有任务运行�
 - Windows 10/11
 - Python 3.9+（需要 Tkinter；Windows 官方安装包默认包含）
 - Pixi 0.82+（其他较新版本通常也可以；JSON 字段变化时会给出错误提示）
-- 不需要 `pip install` 任何包
+- Tk 模式不需要 `pip install` 任何包；Web 模式需要 Flask 3.x
 
 ## 测试
 
@@ -238,6 +288,7 @@ pixi-env-manager/
       dialogs.py
       theme.py
       widgets.py
+    web/                    Flask Web UI (auth / service / server / templates / static)
   tests/
 ```
 
@@ -316,6 +367,7 @@ with Tk 8.6.
   - Environment- or manifest-mutating pixi commands run one at a time
 - **Theme**: light / dark.
 - **Languages**: Chinese / English / Japanese, switched in Settings and applied after restart.
+- **Web UI**: optional Flask interface with LAN access, single-password login, package management, job output, and the editor.
 - **History and settings**: stored in `%APPDATA%\PixiEnvManager\state.json`.
 
 ## Running
@@ -349,6 +401,55 @@ Any Python 3.9+ interpreter can also be used:
 ```powershell
 C:\some\python.exe .\pixi_env_manager.py
 ```
+
+### Web UI
+
+![Web UI](docs/screenshot-web-en.png)
+
+The default entry point starts Tk; add `--web` for the Flask Web UI:
+
+Install Flask once for Web mode:
+
+```powershell
+pip install -r requirements.txt
+```
+
+```powershell
+# Set the password once (hidden local input)
+start.bat --web --set-password
+
+# Local-only access
+start.bat --web --host 127.0.0.1 --port 8010
+
+# LAN access
+start.bat --web --host 0.0.0.0 --port 8010
+```
+
+Open `http://this-computer-ip:8010` and sign in with that password. Every Web
+request, including localhost, requires authentication.
+
+- Defaults to `127.0.0.1`; only `--host 0.0.0.0` exposes the LAN interface
+- The first version uses HTTP without TLS; use only on a trusted LAN
+- The Web server refuses to start if no password is configured
+- Tk and Web share `PixiClient`, `JobManager`, `app/state.py`, and `locales/*.json`
+- **Run in Terminal** opens a terminal on the computer running the Web server
+- The Web UI uses Flask; Tk mode remains standard-library only
+- Passwords are stored as PBKDF2-SHA256 hashes; sessions last 7 days by default
+- Login uses CSRF protection and failed-attempt rate limiting
+- Reset a forgotten password locally with `start.bat --web --set-password`
+- Password changes via the Web UI are not supported in the first version; HTTP traffic can be sniffed on a LAN
+
+### Multiple computers
+
+Run a separate Web server on each computer to manage:
+
+```text
+PC A: start.bat --web --host 0.0.0.0 --port 8010
+PC B: start.bat --web --host 0.0.0.0 --port 8010
+```
+
+Open `http://pc-a-ip:8010` and `http://pc-b-ip:8010`. There is no central hub
+and no cross-machine execution; each server manages its own local Pixi workspace.
 
 ## Usage
 
@@ -443,7 +544,7 @@ Manual command:
 - Windows 10/11
 - Python 3.9+ (Tkinter required; included in the official Windows installer)
 - Pixi 0.82+ (newer versions usually work; JSON field changes produce an error message)
-- No `pip install` packages required
+- Tk mode requires no `pip install` packages; Web mode requires Flask 3.x
 
 ## Tests
 
@@ -489,6 +590,7 @@ pixi-env-manager/
       dialogs.py
       theme.py
       widgets.py
+    web/                    Flask Web UI (auth / service / server / templates / static)
   tests/
 ```
 
@@ -559,6 +661,7 @@ pixi-env-manager/
   - 環境/マニフェストを変更する pixi コマンドは同時に 1 つだけ実行
 - **テーマ**：ライト / ダーク。
 - **言語**：中文 / English / 日本語。設定で切り替え、再起動後に反映。
+- **Web UI**：任意の Flask インターフェース。LAN アクセス、単一パスワード認証、パッケージ管理、ジョブ出力、エディターに対応。
 - **履歴と設定**：`%APPDATA%\PixiEnvManager\state.json` に保存。
 
 ## 起動
@@ -592,6 +695,55 @@ py -3 .\pixi_env_manager.py C:\pixi_env\pixi.toml
 ```powershell
 C:\some\python.exe .\pixi_env_manager.py
 ```
+
+### Web UI
+
+![Web UI](docs/screenshot-web-en.png)
+
+既定では Tk が起動します。`--web` を付けると Flask Web UI が起動します：
+
+Web モードには Flask が必要です：
+
+```powershell
+pip install -r requirements.txt
+```
+
+```powershell
+# 初回のパスワード設定（ローカル端末で非表示入力）
+start.bat --web --set-password
+
+# ローカル専用
+start.bat --web --host 127.0.0.1 --port 8010
+
+# 局域网（LAN）公開
+start.bat --web --host 0.0.0.0 --port 8010
+```
+
+ブラウザで `http://このPCのIP:8010` を開き、設定したパスワードでログインします。
+localhost を含め、すべての Web アクセスにログインが必要です。
+
+- 既定は `127.0.0.1`。`--host 0.0.0.0` を指定した場合だけ LAN に公開
+- 初版は TLS なしの HTTP。信頼できる LAN でのみ使用
+- パスワード未設定の場合、Web サーバーは起動しません
+- Tk と Web は `PixiClient`、`JobManager`、`app/state.py`、`locales/*.json` を共有
+- 「ターミナルで実行」は Web サーバーを動かしている PC のローカルターミナルを開きます
+- Web は Flask を使用。Tk モードは標準ライブラリのみ
+- パスワードは PBKDF2-SHA256 ハッシュで保存され、セッションは既定で 7 日間
+- ログインには CSRF 対策と失敗回数の制限あり
+- パスワードを忘れた場合はサーバー端末で `start.bat --web --set-password` を再実行
+- 初版では Web からのパスワード変更は非対応。HTTP は LAN で盗聴される可能性があります
+
+### 複数の PC
+
+管理する PC ごとに Web サーバーを起動します：
+
+```text
+PC A: start.bat --web --host 0.0.0.0 --port 8010
+PC B: start.bat --web --host 0.0.0.0 --port 8010
+```
+
+`http://PC-AのIP:8010` と `http://PC-BのIP:8010` をそれぞれ開きます。中央サーバーや
+PC 間の遠隔実行はなく、各 Web サーバーはその PC のローカル Pixi 環境を管理します。
 
 ## 使い方
 
@@ -689,7 +841,7 @@ Pixi 自身の `--help` とコマンド出力は元の言語のままです。�
 - Windows 10/11
 - Python 3.9+（Tkinter が必要。Windows 公式インストーラーには含まれる）
 - Pixi 0.82+（より新しいバージョンでも通常は動作。JSON フィールドが変わった場合はエラーを表示）
-- `pip install` するパッケージは不要
+- Tk モードは追加パッケージ不要。Web モードは Flask 3.x が必要
 
 ## テスト
 
@@ -734,6 +886,7 @@ pixi-env-manager/
       dialogs.py
       theme.py
       widgets.py
+    web/                    Flask Web UI (auth / service / server / templates / static)
   tests/
 ```
 
