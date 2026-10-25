@@ -120,6 +120,10 @@ start.bat --web --host 0.0.0.0 --port 8010
 浏览器打开 `http://本机IP:8010`，使用设置的密码登录。所有 Web 访问（包括
 localhost）都需要登录。
 
+如果直接运行 `--web` 而尚未设置密码，程序会输出
+`Web password is not configured.` 并退出。Web 服务会保留在当前控制台窗口中，
+关闭窗口即停止服务。
+
 - 默认只绑定 `127.0.0.1`；`--host 0.0.0.0` 才开放局域网
 - 首版使用 HTTP，不加密；只建议在可信局域网使用
 - 没有设置密码时 Web 服务拒绝启动
@@ -428,6 +432,10 @@ start.bat --web --host 0.0.0.0 --port 8010
 Open `http://this-computer-ip:8010` and sign in with that password. Every Web
 request, including localhost, requires authentication.
 
+If `--web` is started before a password is configured, it prints
+`Web password is not configured.` and exits. The Web server stays in the
+current console window; closing that window stops the server.
+
 - Defaults to `127.0.0.1`; only `--host 0.0.0.0` exposes the LAN interface
 - The first version uses HTTP without TLS; use only on a trusted LAN
 - The Web server refuses to start if no password is configured
@@ -721,6 +729,10 @@ start.bat --web --host 0.0.0.0 --port 8010
 
 ブラウザで `http://このPCのIP:8010` を開き、設定したパスワードでログインします。
 localhost を含め、すべての Web アクセスにログインが必要です。
+
+パスワード未設定のまま `--web` を起動すると
+`Web password is not configured.` と表示して終了します。Web サーバーは現在の
+コンソールウィンドウで動き続け、ウィンドウを閉じると停止します。
 
 - 既定は `127.0.0.1`。`--host 0.0.0.0` を指定した場合だけ LAN に公開
 - 初版は TLS なしの HTTP。信頼できる LAN でのみ使用

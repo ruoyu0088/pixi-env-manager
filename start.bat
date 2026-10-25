@@ -58,13 +58,32 @@ exit /b 1
 
 :run
 set "NEEDS_CONSOLE="
+set "PASSWORD_MODE="
 for %%A in (%*) do (
     if /I "%%~A"=="--web" set "NEEDS_CONSOLE=1"
     if /I "%%~A"=="--set-password" set "NEEDS_CONSOLE=1"
+    if /I "%%~A"=="--set-password" set "PASSWORD_MODE=1"
     if /I "%%~A"=="--help" set "NEEDS_CONSOLE=1"
     if /I "%%~A"=="-h" set "NEEDS_CONSOLE=1"
 )
 set "RUNNER=%PYTHONW%"
 if defined NEEDS_CONSOLE set "RUNNER=%PYTHONW:pythonw.exe=python.exe%"
-start "" "%RUNNER%" "%~dp0pixi_env_manager.py" %*
+if defined NEEDS_CONSOLE goto :run_console
+
+start "" "%PYTHONW%" "%~dp0pixi_env_manager.py" %*
 exit /b 0
+
+:run_console
+rem Web and password setup stay in this console, so errors and logs are visible.
+"%RUNNER%" "%~dp0pixi_env_manager.py" %*
+set "RC=%ERRORLEVEL%"
+if not "%RC%"=="0" (
+    echo.
+    echo [ERROR] Pixi Environment Manager exited with code %RC%.
+    echo If this is the Web UI, configure the password first:
+    echo     start.bat --web --set-password
+    pause
+    exit /b %RC%
+)
+if defined PASSWORD_MODE pause
+exit /b %RC%
