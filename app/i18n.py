@@ -69,6 +69,21 @@ def language_display_name(code: str) -> str:
     return LANGUAGES.get(code, code)
 
 
+def catalog_for(code: str) -> Dict[str, str]:
+    """Return the JSON catalog for a language (empty for English)."""
+    if code == "en":
+        return {}
+    return dict(_load_catalog(code))
+
+
+def translate_for(text: str, code: str) -> str:
+    """Translate without changing the process-wide current language."""
+    if not text or code == "en":
+        return text
+    catalog = _load_catalog(code)
+    return catalog.get(text, text)
+
+
 def _catalog() -> Dict[str, str]:
     if _CURRENT == "en":
         return {}

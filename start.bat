@@ -57,5 +57,14 @@ pause
 exit /b 1
 
 :run
-start "" "%PYTHONW%" "%~dp0pixi_env_manager.py" %*
+set "NEEDS_CONSOLE="
+for %%A in (%*) do (
+    if /I "%%~A"=="--web" set "NEEDS_CONSOLE=1"
+    if /I "%%~A"=="--set-password" set "NEEDS_CONSOLE=1"
+    if /I "%%~A"=="--help" set "NEEDS_CONSOLE=1"
+    if /I "%%~A"=="-h" set "NEEDS_CONSOLE=1"
+)
+set "RUNNER=%PYTHONW%"
+if defined NEEDS_CONSOLE set "RUNNER=%PYTHONW:pythonw.exe=python.exe%"
+start "" "%RUNNER%" "%~dp0pixi_env_manager.py" %*
 exit /b 0

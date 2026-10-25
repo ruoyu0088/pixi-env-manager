@@ -335,6 +335,73 @@ class JobManager:
         return events
 
 
+class JobHub:
+    """Collect JobManager events into pollable per-job logs for the Web UI."""
+
+    def __init__(self, manager: JobManager):
+        self.manager = manager
+        self._logs: Dict[int, List[str]] = {}
+        self._done: Dict[int, Dict[str, object]] = {}
+        self._titles: Dict[int, str] = {}
+        self._lock = threading.Lock()
+        self._started = False
+
+    def ensure_started(self) -> None:
+        if self._started:
+            return
+        self._started = True
+        threading.Thread(target=self._pump, daemon=True).start()
+
+    def register(self, job: Job) -> None:
+        with self._lock:
+            self._titles[job.job_id] = job.title
+            self._logs.setdefault(job.job_id, [])
+
+    def _pump(self) -> None:
+        while True:
+            events = self.manager.drain()
+            if not events:
+                time.sleep(0.05)
+                continue
+            with self._lock:
+                for event in events:
+                    job_id = event.job.job_id
+                    self._titles[job_id] = event.job.title
+                    if event.kind == "line":
+                        self._logs.setdefault(job_id, []).append(event.text)
+                    elif event.kind == "done":
+                        self._done[job_id] = {
+                            "returncode": event.returncode,
+                            "elapsed": event.elapsed,
+                            "cancelled": event.job.cancelled,
+                        }
+
+    def snapshot(self, job_id: int, offset: int = 0) -> Optional[Dict[str, object]]:
+        with self._lock:
+            job = self.manager.get(job_id)
+            if job is not None:
+                self._titles[job_id] = job.title
+            if (
+                job_id not in self._logs
+                and job_id not in self._done
+                and job_id not in self._titles
+            ):
+                return None
+            lines = self._logs.get(job_id, [])
+            start = max(0, min(int(offset), len(lines)))
+            result: Dict[str, object] = {
+                "id": job_id,
+                "title": self._titles.get(job_id, ""),
+                "lines": list(lines[start:]),
+                "next": len(lines),
+                "done": job_id in self._done,
+            }
+            done = self._done.get(job_id)
+            if done:
+                result.update(done)
+            return result
+
+
 def _ps_quote(value: str) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 

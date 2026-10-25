@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="{{ language }}" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <meta name="pixi-language" content="{{ language }}">
+  <title>{{ app_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="brand-title">{{ app_title }}</span>
+        </div>
+        <button class="icon-button" id="sidebar-collapse" type="button"
+                title="Collapse sidebar (Ctrl+B)">‹</button>
+      </div>
+
+      <div class="workspace-box">
+        <label for="workspace-path" data-i18n="Workspace">Workspace</label>
+        <div class="input-row">
+          <input id="workspace-path" type="text" placeholder="C:\path\to\pixi.toml">
+          <button class="button button-primary" id="open-workspace" type="button" data-i18n="Open">Open</button>
+        </div>
+        <div class="actions">
+          <button class="button button-small" id="new-workspace" type="button" data-i18n="New Workspace">New Workspace</button>
+        </div>
+        <select id="recent-workspaces" class="wide" aria-label="Recent workspaces"></select>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span data-i18n="Quick Tasks">Quick Tasks</span>
+          <span id="task-count" class="badge">0</span>
+        </div>
+        <div id="quick-tasks" class="quick-list"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span data-i18n="Python Programs">Python Programs</span>
+          <span id="python-count" class="badge">0</span>
+        </div>
+        <div id="python-programs" class="quick-list"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="footer-row">
+          <button class="theme-toggle" id="theme-toggle" type="button">
+            <span id="theme-icon">◐</span>
+            <span id="theme-label">Light</span>
+          </button>
+          <span class="connection-status"><span class="status-dot"></span><span id="pixi-version">Pixi</span></span>
+        </div>
+        <div class="footer-row">
+          <button class="link-button" id="open-settings" type="button" data-i18n="Settings">Settings</button>
+        </div>
+        <div class="footer-row">
+          <select id="language-select" class="language-select" aria-label="Language">
+            {% for code, label in languages.items() %}
+            <option value="{{ code }}" {% if code == language %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <form method="post" action="{{ url_for('logout') }}" id="logout-form">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button class="link-button" type="submit" data-i18n="Log out">Log out</button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <button class="sidebar-handle" id="sidebar-handle" type="button" title="Show sidebar (Ctrl+B)">›</button>
+
+    <main class="main">
+      <header class="main-header">
+        <div class="workspace-title">
+          <strong id="workspace-name" data-i18n="No workspace">No workspace</strong>
+          <span id="workspace-manifest" class="muted"></span>
+        </div>
+        <div class="header-actions">
+          <select id="environment-select" class="environment-select" aria-label="Environment"></select>
+          <button class="button" id="manage-environments" type="button" data-i18n="Manage Environments">Manage Environments</button>
+          <button class="button" id="refresh-workspace" type="button" data-i18n="Refresh">Refresh</button>
+        </div>
+      </header>
+
+      <nav class="tabbar" id="tabbar">
+        <button class="tab active" data-tab="overview" data-i18n="Overview">Overview</button>
+        <button class="tab" data-tab="packages" data-i18n="Packages">Packages</button>
+        <button class="tab" data-tab="tasks" data-i18n="Task">Task</button>
+        <button class="tab" data-tab="python" data-i18n="Python">Python</button>
+        <button class="tab" data-tab="command" data-i18n="Command">Command</button>
+        <button class="tab" data-tab="editor">pixi.toml</button>
+      </nav>
+
+      <section class="content">
+        <div class="tab-panel active" id="tab-overview">
+          <div class="cards-grid" id="overview-cards"></div>
+          <div class="card">
+            <div class="card-header"><h2 data-i18n="Environments">Environments</h2></div>
+            <div id="overview-environments" class="env-grid"></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-packages">
+          <div class="toolbar">
+            <label class="radio"><input type="radio" name="package-filter" value="user" checked><span data-i18n="User-installed">User-installed</span></label>
+            <label class="radio"><input type="radio" name="package-filter" value="all"><span data-i18n="All packages">All packages</span></label>
+            <input id="package-search" type="search" placeholder="Search" data-i18n-placeholder="Search">
+            <select id="package-kind">
+              <option value="" data-i18n="All">All</option>
+              <option value="conda">Conda</option>
+              <option value="pypi">PyPI</option>
+            </select>
+            <button class="button" id="query-latest" type="button" data-i18n="Check Selected Latest">Check Selected Latest</button>
+            <button class="button" id="check-compatible" type="button" data-i18n="Check Compatible Updates">Check Compatible Updates</button>
+            <button class="button" id="install-env" type="button" data-i18n="Install Environment">Install Environment</button>
+            <button class="button" id="update-package" type="button" data-i18n="Update">Update</button>
+            <button class="button" id="upgrade-package" type="button" data-i18n="Upgrade">Upgrade</button>
+            <button class="button button-danger" id="remove-package" type="button" data-i18n="Remove">Remove</button>
+            <button class="button button-primary" id="add-package" type="button" data-i18n="Add Package">Add Package</button>
+          </div>
+          <div class="status-line" id="package-status"></div>
+          <div class="table-wrap">
+            <table class="package-table">
+              <thead>
+                <tr>
+                  <th data-i18n="Name">Name</th>
+                  <th data-i18n="Installed">Installed</th>
+                  <th data-i18n="Latest">Latest</th>
+                  <th data-i18n="Status">Status</th>
+                  <th data-i18n="Type">Type</th>
+                  <th data-i18n="Scope">Scope</th>
+                  <th data-i18n="Requested">Requested</th>
+                  <th data-i18n="Source">Source</th>
+                  <th data-i18n="Size">Size</th>
+                </tr>
+              </thead>
+              <tbody id="package-rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-tasks">
+          <div class="card">
+            <div class="card-header">
+              <h2 data-i18n="Task">Task</h2>
+              <span class="muted" id="task-hint"></span>
+            </div>
+            <div id="task-list" class="task-list"></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-python">
+          <div class="card">
+            <div class="card-header"><h2 data-i18n="Run Python">Run Python</h2></div>
+            <div class="form-grid">
+              <label data-i18n="Script path">Script path</label>
+              <input id="python-script" type="text" placeholder="C:\path\to\script.py">
+              <label data-i18n="Arguments">Arguments</label>
+              <input id="python-args" type="text">
+              <label data-i18n="Working directory">Working directory</label>
+              <input id="python-cwd" type="text">
+            </div>
+            <div class="actions">
+              <button class="button button-primary" id="run-python" type="button" data-i18n="Run">Run</button>
+              <button class="button" id="run-python-terminal" type="button" data-i18n="Run in Terminal">Run in Terminal</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-command">
+          <div class="card">
+            <div class="card-header"><h2 data-i18n="Manual Command">Manual Command</h2></div>
+            <p class="muted" data-i18n="Enter arguments after pixi. The command is executed without a shell.">Enter arguments after pixi. The command is executed without a shell.</p>
+            <input id="manual-command" class="wide" type="text" placeholder="add numpy">
+            <div class="actions">
+              <button class="button button-primary" id="run-command" type="button" data-i18n="Run">Run</button>
+              <button class="button" id="run-command-terminal" type="button" data-i18n="Run in Terminal">Run in Terminal</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-editor">
+          <div class="card editor-card">
+            <div class="card-header">
+              <h2 id="editor-path">pixi.toml</h2>
+              <div class="actions">
+                <button class="button" id="reload-editor" type="button" data-i18n="Reload">Reload</button>
+                <button class="button button-primary" id="save-editor" type="button" data-i18n="Save">Save</button>
+              </div>
+            </div>
+            <textarea id="editor-text" spellcheck="false"></textarea>
+            <div class="status-line" id="editor-status"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="output-panel" id="output-panel">
+        <div class="output-header">
+          <strong data-i18n="Output">Output</strong>
+          <span id="output-idle" class="muted" data-i18n="Idle">Idle</span>
+          <div class="output-actions">
+            <button class="button button-small" id="stop-job" type="button" data-i18n="Stop">Stop</button>
+            <button class="button button-small" id="stop-all" type="button" data-i18n="Stop All">Stop All</button>
+            <button class="button button-small" id="close-finished" type="button" data-i18n="Close Finished">Close Finished</button>
+            <button class="icon-button" id="toggle-output" type="button" title="Toggle output (Ctrl+J)">⌄</button>
+          </div>
+        </div>
+        <div class="output-body">
+          <div class="output-tabs" id="output-tabs"></div>
+          <pre class="output-log" id="output-log"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-root" id="modal-root"></div>
+  <div class="toast-root" id="toast-root"></div>
+
+  <script>
+    window.PIXI_BOOT = {
+      csrf: {{ csrf|tojson }},
+      language: {{ language|tojson }},
+      appTitle: {{ app_title|tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="{{ language }}" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <div>
+        <h1>{{ app_title }}</h1>
+        <p class="muted">{{ t("Single-password Web access") }}</p>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('login_post', next=request.args.get('next', ''), lang=language) }}" class="login-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="password">{{ t("Password") }}</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" autofocus required>
+      {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+      <button type="submit" class="button button-primary">{{ t("Sign in") }}</button>
+    </form>
+
+    <div class="login-footer">
+      <span class="muted">{{ t("Language") }}</span>
+      <a href="?lang=zh">中文</a>
+      <a href="?lang=en">English</a>
+      <a href="?lang=ja">日本語</a>
+    </div>
+  </main>
+</body>
+</html>
