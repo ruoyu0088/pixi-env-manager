@@ -128,6 +128,11 @@ localhost）都需要登录。
 - 首版使用 HTTP，不加密；只建议在可信局域网使用
 - 没有设置密码时 Web 服务拒绝启动
 - Web 和 Tk 共用 `PixiClient`、`JobManager`、`app/state.py` 以及 `locales/*.json`
+- `%APPDATA%\PixiEnvManager\state.json` 是唯一的应用配置源：最近环境、语言、主题、终端、Pixi 路径、Python 历史都从这里读写
+- Web 启动时自动打开最近一个可用环境，并恢复当时的环境（environment）
+- Tk/Web 对 `state.json` 的写入使用跨进程锁，避免同时打开时互相覆盖
+- 浅色主题的侧栏、输入框、按钮和输出面板控件都是浅色，仅输出日志保持深色
+- 密码哈希单独保存在 `web_auth.json`，它是登录凭据，不属于普通界面配置
 - Web 的“在终端中运行”会在运行服务器的电脑上打开本地终端
 - Web 使用 Flask；Tk 模式仍然只依赖标准库
 - 密码不要求长度或复杂度，只需非空
@@ -441,6 +446,11 @@ current console window; closing that window stops the server.
 - The first version uses HTTP without TLS; use only on a trusted LAN
 - The Web server refuses to start if no password is configured
 - Tk and Web share `PixiClient`, `JobManager`, `app/state.py`, and `locales/*.json`
+- `%APPDATA%\PixiEnvManager\state.json` is the single application-config source: recent environments, language, theme, terminal, Pixi path, and Python history all read/write there
+- The Web UI automatically opens the most recent available environment and restores its saved environment
+- Tk and Web serialize `state.json` writes with a cross-process lock so simultaneous windows do not overwrite each other
+- In the light theme, the sidebar, inputs, buttons, and output-panel controls are light; only the output log stays dark
+- The password hash stays in `web_auth.json` as a login credential, separate from ordinary UI settings
 - **Run in Terminal** opens a terminal on the computer running the Web server
 - The Web UI uses Flask; Tk mode remains standard-library only
 - Passwords have no length or complexity requirement, but must be non-empty
@@ -740,6 +750,11 @@ localhost を含め、すべての Web アクセスにログインが必要で�
 - 初版は TLS なしの HTTP。信頼できる LAN でのみ使用
 - パスワード未設定の場合、Web サーバーは起動しません
 - Tk と Web は `PixiClient`、`JobManager`、`app/state.py`、`locales/*.json` を共有
+- `%APPDATA%\PixiEnvManager\state.json` が唯一のアプリ設定元です。最近の環境、言語、テーマ、ターミナル、Pixi パス、Python 履歴をここで読み書きします
+- Web 起動時は最近の有効な環境を自動で開き、保存されている environment を復元します
+- Tk/Web は `state.json` の書き込みをプロセス間ロックで直列化し、同時起動時の上書きを防ぎます
+- ライトテーマではサイドバー、入力欄、ボタン、出力パネルの操作部もライト表示です。出力ログだけはダークのままです
+- パスワードハッシュはログイン資格情報として `web_auth.json` に分離します
 - 「ターミナルで実行」は Web サーバーを動かしている PC のローカルターミナルを開きます
 - Web は Flask を使用。Tk モードは標準ライブラリのみ
 - パスワードの長さ・複雑さの要件はありません（空文字のみ不可）
