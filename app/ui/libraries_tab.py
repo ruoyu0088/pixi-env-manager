@@ -33,8 +33,8 @@ class LibrariesTab(ttk.Frame):
 
         header = ttk.Frame(self)
         header.pack(fill="x")
-        ttk.Label(header, text="库", style="Title.TLabel").pack(side="left")
-        self.headline_var = tk.StringVar(value="未打开环境")
+        ttk.Label(header, text="Packages", style="Title.TLabel").pack(side="left")
+        self.headline_var = tk.StringVar(value="No environment")
         ttk.Label(
             header, textvariable=self.headline_var, style="Muted.TLabel"
         ).pack(side="left", padx=(10, 0), pady=(6, 0))
@@ -44,7 +44,7 @@ class LibrariesTab(ttk.Frame):
         self.filter_var = tk.StringVar(value="user")
         self.user_radio = ttk.Radiobutton(
             toolbar,
-            text="仅用户安装",
+            text="User-installed",
             variable=self.filter_var,
             value="user",
             command=self.refresh_view,
@@ -52,14 +52,14 @@ class LibrariesTab(ttk.Frame):
         self.user_radio.pack(side="left")
         self.all_radio = ttk.Radiobutton(
             toolbar,
-            text="全部库",
+            text="All Packages",
             variable=self.filter_var,
             value="all",
             command=self.refresh_view,
         )
         self.all_radio.pack(side="left", padx=(8, 0))
 
-        ttk.Label(toolbar, text="搜索", style="Muted.TLabel").pack(
+        ttk.Label(toolbar, text="Search", style="Muted.TLabel").pack(
             side="left", padx=(16, 4)
         )
         self.search_var = tk.StringVar()
@@ -67,14 +67,14 @@ class LibrariesTab(ttk.Frame):
         self.search_entry.pack(side="left")
         self.search_var.trace_add("write", lambda *_: self.refresh_view())
 
-        ttk.Label(toolbar, text="类型", style="Muted.TLabel").pack(
+        ttk.Label(toolbar, text="Type", style="Muted.TLabel").pack(
             side="left", padx=(12, 4)
         )
-        self.kind_var = tk.StringVar(value=i18n.t("全部"))
+        self.kind_var = tk.StringVar(value=i18n.t("All"))
         self.kind_combo = ttk.Combobox(
             toolbar,
             textvariable=self.kind_var,
-            values=(i18n.t("全部"), "Conda", "PyPI"),
+            values=(i18n.t("All"), "Conda", "PyPI"),
             state="readonly",
             width=8,
         )
@@ -82,21 +82,21 @@ class LibrariesTab(ttk.Frame):
         self.kind_combo.bind("<<ComboboxSelected>>", lambda _event: self.refresh_view())
 
         self.refresh_button = ttk.Button(
-            toolbar, text="刷新", command=self.app.refresh_current
+            toolbar, text="Refresh", command=self.app.refresh_current
         )
         self.refresh_button.pack(side="right")
         self.install_button = ttk.Button(
-            toolbar, text="安装环境", command=self.app.install_env
+            toolbar, text="Install Environment", command=self.app.install_env
         )
         self.install_button.pack(side="right", padx=(0, 6))
         self.compat_button = ttk.Button(
             toolbar,
-            text="检查兼容更新",
+            text="Check Compatible Updates",
             command=self.app.check_compatible_updates,
         )
         self.compat_button.pack(side="right", padx=(0, 6))
         self.latest_button = ttk.Button(
-            toolbar, text="查询选中最新", command=self.query_selected_latest
+            toolbar, text="Check Selected Latest", command=self.query_selected_latest
         )
         self.latest_button.pack(side="right", padx=(0, 6))
 
@@ -128,15 +128,15 @@ class LibrariesTab(ttk.Frame):
             table_frame, columns=columns, show="headings", selectmode="extended"
         )
         headings = {
-            "name": "名称",
-            "version": "已安装",
-            "latest": "最新版本",
-            "status": "状态",
-            "kind": "类型",
-            "scope": "作用域",
-            "spec": "请求约束",
-            "source": "来源",
-            "size": "大小",
+            "name": "Name",
+            "version": "Installed",
+            "latest": "Latest version",
+            "status": "Status",
+            "kind": "Type",
+            "scope": "Scope",
+            "spec": "Requested",
+            "source": "Source",
+            "size": "Size",
         }
         widths = {
             "name": 210,
@@ -179,7 +179,7 @@ class LibrariesTab(ttk.Frame):
         self.tree.bind("<Double-1>", lambda _event: self.query_selected_latest())
 
         self.details = ttk.LabelFrame(
-            self.body_pane, text="包详情", padding=(7, 5)
+            self.body_pane, text="Package Details", padding=(7, 5)
         )
         self.body_pane.add(self.details, weight=1)
         self._detail_package: Optional[Package] = None
@@ -203,16 +203,16 @@ class LibrariesTab(ttk.Frame):
         detail_grid = ttk.Frame(self.details)
         detail_grid.pack(fill="x")
         positions = [
-            ("name", "名称", 0, 0, 1),
-            ("version", "版本", 0, 2, 1),
-            ("build", "构建", 0, 4, 1),
-            ("kind", "类型", 0, 6, 1),
-            ("latest", "最新", 1, 0, 1),
-            ("spec", "请求约束", 1, 2, 3),
-            ("license", "许可证", 1, 6, 1),
-            ("source", "来源", 2, 0, 3),
-            ("file", "文件", 2, 4, 3),
-            ("extra", "说明", 3, 0, 6),
+            ("name", "Name", 0, 0, 1),
+            ("version", "Version", 0, 2, 1),
+            ("build", "Build", 0, 4, 1),
+            ("kind", "Type", 0, 6, 1),
+            ("latest", "Latest", 1, 0, 1),
+            ("spec", "Requested", 1, 2, 3),
+            ("license", "License", 1, 6, 1),
+            ("source", "Source", 2, 0, 3),
+            ("file", "File", 2, 4, 3),
+            ("extra", "Notes", 3, 0, 6),
         ]
         for key, label, row, column, span in positions:
             ttk.Label(
@@ -241,30 +241,30 @@ class LibrariesTab(ttk.Frame):
         detail_actions.pack(fill="x", pady=(6, 0))
         self.detail_info_button = ttk.Button(
             detail_actions,
-            text="完整详情…",
+            text="Full Details…",
             command=self._show_full_details,
         )
         self.detail_info_button.pack(side="right")
         self.detail_latest_button = ttk.Button(
             detail_actions,
-            text="查询此包最新版",
+            text="Check This Package",
             command=self.query_selected_latest,
         )
         self.detail_latest_button.pack(side="left")
         self.update_button = ttk.Button(
             detail_actions,
-            text="更新到兼容版本",
+            text="Update to compatible",
             command=lambda: self._update_selected(False),
         )
         self.update_button.pack(side="left", padx=(6, 0))
         self.upgrade_button = ttk.Button(
             detail_actions,
-            text="升级到最新版本",
+            text="Upgrade to Latest",
             command=lambda: self._update_selected(True),
         )
         self.upgrade_button.pack(side="left", padx=(6, 0))
         self.copy_button = ttk.Button(
-            detail_actions, text="复制包名", command=self._copy_selected_name
+            detail_actions, text="Copy Package Name", command=self._copy_selected_name
         )
         self.copy_button.pack(side="right", padx=(0, 6))
 
@@ -353,9 +353,9 @@ class LibrariesTab(ttk.Frame):
 
     def _update_headline(self) -> None:
         if not self.workspace:
-            self.headline_var.set("未打开环境")
+            self.headline_var.set("No environment")
             return
-        environment = i18n.t("基础依赖") if self.base_mode else self.env_name
+        environment = i18n.t("Base dependencies") if self.base_mode else self.env_name
         self.headline_var.set(
             "{} / {}".format(
                 self.workspace.name or self.workspace.root.name, environment
@@ -367,7 +367,7 @@ class LibrariesTab(ttk.Frame):
             self.packages = []
             self.tree.delete(*self.tree.get_children())
             self.visible.clear()
-            self.headline_var.set("未打开环境")
+            self.headline_var.set("No environment")
             self.status_var.set("")
             self._clear_details()
             return
@@ -375,15 +375,15 @@ class LibrariesTab(ttk.Frame):
         user_count = sum(1 for package in all_packages if package.is_explicit)
         if self.base_mode:
             self.filter_var.set("user")
-            self.user_radio.configure(text="基础依赖 ({})".format(user_count))
+            self.user_radio.configure(text="Base dependencies ({})".format(user_count))
             self.all_radio.configure(
-                text="全部库 ({})".format(len(all_packages)), state="disabled"
+                text="All Packages ({})".format(len(all_packages)), state="disabled"
             )
             mode = "user"
         else:
-            self.user_radio.configure(text="仅用户安装 ({})".format(user_count))
+            self.user_radio.configure(text="User-installed ({})".format(user_count))
             self.all_radio.configure(
-                text="全部库 ({})".format(len(all_packages)), state="normal"
+                text="All Packages ({})".format(len(all_packages)), state="normal"
             )
             mode = self.filter_var.get()
         query = self.search_var.get().strip().lower()
@@ -450,19 +450,19 @@ class LibrariesTab(ttk.Frame):
         error = self.workspace.package_errors.get(error_key)
         if error:
             self.status_var.set(
-                "读取失败：{}  （可点击“安装环境”或“刷新”）".format(
+                "Read failed: {} (try Install Environment or Refresh)".format(
                     truncate_text(error.replace("\n", " "), 180)
                 )
             )
             self.status_label.configure(style="Danger.TLabel")
         elif self.base_mode:
             self.status_var.set(
-                "基础依赖 {} 个 · 所有环境共享".format(len(filtered))
+                "{} base dependencies · shared by all environments".format(len(filtered))
             )
             self.status_label.configure(style="Muted.TLabel")
         else:
             self.status_var.set(
-                "显示 {} / {} 个包 · 用户显式依赖 {} 个".format(
+                "Showing {} / {} packages · {} explicit dependencies".format(
                     len(filtered), len(all_packages), user_count
                 )
             )
@@ -533,7 +533,7 @@ class LibrariesTab(ttk.Frame):
             "version": package.version,
             "build": package.build or "—",
             "kind": "PyPI" if package.kind.lower() == "pypi" else "Conda",
-            "latest": package.latest or "未检查",
+            "latest": package.latest or "Not checked",
             "spec": package.requested_spec or "—",
             "source": package.short_source() or "—",
             "license": truncate_text(package.license, 60) or "—",
@@ -541,12 +541,12 @@ class LibrariesTab(ttk.Frame):
             "file": truncate_text(package.file_name, 70) or "—",
             "extra": "",
         }
-        extra = "{}: {}".format(i18n.t("作用域"), package.scope_text)
+        extra = "{}: {}".format(i18n.t("Scope"), package.scope_text)
         if package.latest_error:
-            values["latest"] = "查询失败: " + truncate_text(package.latest_error, 55)
+            values["latest"] = "Check failed: " + truncate_text(package.latest_error, 55)
         elif package.compatible_to:
             extra += " · {}: {}".format(
-                i18n.t("兼容更新"), package.compatible_to
+                i18n.t("Compatible update"), package.compatible_to
             )
         values["extra"] = extra
         for key, value in values.items():
@@ -563,40 +563,40 @@ class LibrariesTab(ttk.Frame):
         if package is None:
             return
         lines = [
-            i18n.t("名称: {}", package.name),
-            i18n.t("已安装版本: {}", package.version),
-            i18n.t("最新版本: {}", package.latest or i18n.t("未检查")),
-            i18n.t("状态: {}", package.status_text),
+            i18n.t("Name: {}", package.name),
+            i18n.t("Installed: {}", package.version),
+            i18n.t("Latest: {}", package.latest or i18n.t("Not checked")),
+            i18n.t("Status: {}", package.status_text),
             i18n.t(
-                "类型: {}",
+                "Type: {}",
                 "PyPI" if package.kind.lower() == "pypi" else "Conda",
             ),
-            i18n.t("构建: {}", package.build or "—"),
-            i18n.t("请求约束: {}", package.requested_spec or "—"),
-            i18n.t("来源: {}", package.source or "—"),
-            i18n.t("许可证: {}", package.license or "—"),
-            i18n.t("文件名: {}", package.file_name or "—"),
+            i18n.t("Build: {}", package.build or "—"),
+            i18n.t("Requested: {}", package.requested_spec or "—"),
+            i18n.t("Source: {}", package.source or "—"),
+            i18n.t("License: {}", package.license or "—"),
+            i18n.t("File: {}", package.file_name or "—"),
             i18n.t("URL: {}", package.url or "—"),
         ]
         if package.depends:
-            lines.extend(["", i18n.t("运行依赖:")])
+            lines.extend(["", i18n.t("Runtime dependencies:")])
             lines.extend("  " + item for item in package.depends)
         if package.constrains:
-            lines.extend(["", i18n.t("约束:")])
+            lines.extend(["", i18n.t("Constraints:")])
             lines.extend("  " + item for item in package.constrains)
         if package.compatible_to:
             lines.extend(
-                ["", i18n.t("兼容范围内可更新到: ") + package.compatible_to]
+                ["", i18n.t("Compatible update: ") + package.compatible_to]
             )
         if package.latest_error:
             lines.extend(
-                ["", i18n.t("最新版本查询失败: ") + package.latest_error]
+                ["", i18n.t("Latest-version check failed: ") + package.latest_error]
             )
         from .dialogs import DetailsDialog
 
         DetailsDialog(
             self,
-            "包详情：{}".format(package.name),
+            "Package details: {}".format(package.name),
             package.name,
             "\n".join(lines),
             colors=self.colors,
@@ -619,7 +619,7 @@ class LibrariesTab(ttk.Frame):
     def query_selected_latest(self) -> None:
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo("查询最新版本", "请先选择一个或多个包。", parent=self)
+            messagebox.showinfo("Check Latest", "Select one or more packages first.", parent=self)
             return
         packages = [self.visible[key] for key in selection if key in self.visible]
         self.query_packages(packages)
@@ -642,7 +642,7 @@ class LibrariesTab(ttk.Frame):
                 platform,
                 lambda result, p=package, t=token: self._on_latest_result(p, result, t),
             )
-        self.status_var.set("正在查询 {} 个包的最新版本…".format(len(packages)))
+        self.status_var.set("Checking the latest version of {} package(s)…".format(len(packages)))
 
     def _on_latest_result(self, package: Package, result, token: int) -> None:
         if token != self._workspace_token:
@@ -657,7 +657,7 @@ class LibrariesTab(ttk.Frame):
         self._refresh_row(package)
         if self._detail_key == package.key:
             self._update_details()
-        self.status_var.set("最新版本查询完成")
+        self.status_var.set("Latest-version check finished")
 
     def _refresh_row(self, package: Package) -> None:
         if not self.tree.exists(package.key):
@@ -694,16 +694,16 @@ class LibrariesTab(ttk.Frame):
         self.refresh_view()
         if updates:
             self.status_var.set(
-                "发现 {} 个包存在兼容范围内的更新".format(len(updates))
+                "{} packages have compatible updates".format(len(updates))
             )
         else:
-            self.status_var.set("兼容范围内没有可更新的包（或环境没有锁文件）")
+            self.status_var.set("No compatible updates (or no lock file)")
 
     def _update_selected(self, upgrade: bool) -> None:
         package = self._selected_package()
         if package is None:
             messagebox.showinfo(
-                "更新包", "请先在列表或详情中选择一个包。", parent=self
+                "Update Package", "Select a package in the list or details first.", parent=self
             )
             return
         self.app.update_package(package, upgrade=upgrade)
@@ -718,12 +718,12 @@ class LibrariesTab(ttk.Frame):
             self._update_details()
         menu = tk.Menu(self, tearoff=0)
         self.app.theme.style_menu(menu)
-        menu.add_command(label="查询最新版本", command=self.query_selected_latest)
-        menu.add_command(label="更新到兼容版本", command=lambda: self._update_selected(False))
-        menu.add_command(label="升级到最新版本", command=lambda: self._update_selected(True))
+        menu.add_command(label="Check Latest", command=self.query_selected_latest)
+        menu.add_command(label="Update to compatible", command=lambda: self._update_selected(False))
+        menu.add_command(label="Upgrade to Latest", command=lambda: self._update_selected(True))
         menu.add_separator()
-        menu.add_command(label="复制包名", command=self._copy_selected_name)
-        menu.add_command(label="复制已安装版本", command=self._copy_version)
+        menu.add_command(label="Copy Package Name", command=self._copy_selected_name)
+        menu.add_command(label="Copy Installed Version", command=self._copy_version)
         i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)

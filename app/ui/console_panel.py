@@ -40,9 +40,9 @@ class OutputView(ttk.Frame):
         header = ttk.Frame(self, style="Panel.TFrame", padding=(7, 4))
         header.pack(fill="x")
         self.status_var = tk.StringVar(
-            value=i18n.t("运行中")
+            value=i18n.t("Running")
             if running
-            else (i18n.t("系统消息") if job_id is None else i18n.t("完成"))
+            else (i18n.t("System log") if job_id is None else i18n.t("Completed"))
         )
         self.status_label = ttk.Label(
             header, textvariable=self.status_var, style="SmallCard.TLabel"
@@ -54,21 +54,21 @@ class OutputView(ttk.Frame):
         )
         self.close_button = ttk.Button(
             header,
-            text="关闭",
+            text="Close",
             style="Small.TButton",
             command=self._close,
             state="normal" if job_id is not None and not running else "disabled",
         )
         self.close_button.pack(side="right")
         ttk.Button(
-            header, text="清空", style="Small.TButton", command=self.clear
+            header, text="Clear", style="Small.TButton", command=self.clear
         ).pack(side="right", padx=(4, 0))
         ttk.Button(
-            header, text="复制", style="Small.TButton", command=self.copy
+            header, text="Copy", style="Small.TButton", command=self.copy
         ).pack(side="right", padx=(4, 0))
         self.stop_button = ttk.Button(
             header,
-            text="停止",
+            text="Stop",
             style="Small.TButton",
             command=self._stop,
             state="normal" if running else "disabled",
@@ -168,7 +168,7 @@ class OutputView(ttk.Frame):
         self.running = True
         self.stop_button.configure(state="normal")
         self.close_button.configure(state="disabled")
-        self.status_var.set(i18n.t("运行中"))
+        self.status_var.set(i18n.t("Running"))
         self._append_raw("$ " + command_line + "\n", "command")
 
     def finish(
@@ -181,22 +181,22 @@ class OutputView(ttk.Frame):
         self.stop_button.configure(state="disabled")
         self.close_button.configure(state="normal")
         if cancelled:
-            self.status_var.set(i18n.t("已停止"))
+            self.status_var.set(i18n.t("Stopped"))
             self._append_raw(
-                i18n.t("[已停止] 用时 {:.1f}s\n", elapsed), "warning"
+                i18n.t("[stopped] {:.1f}s\n", elapsed), "warning"
             )
         elif returncode == 0:
-            self.status_var.set(i18n.t("完成"))
+            self.status_var.set(i18n.t("Completed"))
             self._append_raw(
-                i18n.t("[完成] 用时 {:.1f}s\n", elapsed), "success"
+                i18n.t("[done] {:.1f}s\n", elapsed), "success"
             )
         else:
-            self.status_var.set(i18n.t("失败（退出码 {}）", returncode))
+            self.status_var.set(i18n.t("Failed (exit code {})", returncode))
             self._append_raw(
-                i18n.t("[失败] 退出码 {}，用时 {:.1f}s\n", returncode, elapsed),
+                i18n.t("[failed] exit code {}, {:.1f}s\n", returncode, elapsed),
                 "error",
             )
-        self.meta_var.set(i18n.t("用时 {:.1f}s", elapsed))
+        self.meta_var.set(i18n.t("{:.1f}s", elapsed))
 
     def _stop(self) -> None:
         if self.running and self.job_id is not None and self.on_stop:
@@ -230,21 +230,21 @@ class ConsolePanel(ttk.Frame):
 
         header = ttk.Frame(self, style="Panel.TFrame", padding=(9, 6))
         header.pack(fill="x")
-        ttk.Label(header, text="输出", style="CardTitle.TLabel").pack(side="left")
-        self.status_var = tk.StringVar(value="空闲")
+        ttk.Label(header, text="Output", style="CardTitle.TLabel").pack(side="left")
+        self.status_var = tk.StringVar(value="Idle")
         ttk.Label(
             header, textvariable=self.status_var, style="SmallCard.TLabel"
         ).pack(side="left", padx=(10, 0))
         self.autoscroll_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             header,
-            text="自动滚动",
+            text="Auto-scroll",
             variable=self.autoscroll_var,
             style="Card.TCheckbutton",
         ).pack(side="right", padx=(6, 0))
         self.stop_all_button = ttk.Button(
             header,
-            text="全部停止",
+            text="Stop All",
             style="Small.TButton",
             command=self._stop_all,
             state="disabled",
@@ -252,7 +252,7 @@ class ConsolePanel(ttk.Frame):
         self.stop_all_button.pack(side="right", padx=(6, 0))
         ttk.Button(
             header,
-            text="关闭已完成",
+            text="Close Finished",
             style="Small.TButton",
             command=self.close_completed,
         ).pack(side="right", padx=(6, 0))
@@ -264,10 +264,10 @@ class ConsolePanel(ttk.Frame):
             colors=colors,
             mono_font=mono_font,
             max_lines=max_lines,
-            title="系统",
+            title="System",
             autoscroll_var=self.autoscroll_var,
         )
-        self.notebook.add(self.system_view, text="系统")
+        self.notebook.add(self.system_view, text="System")
 
     def apply_colors(self, colors: Dict[str, str], mono_font=None) -> None:
         self.colors = colors
@@ -280,13 +280,13 @@ class ConsolePanel(ttk.Frame):
     def _update_status(self) -> None:
         running = sum(1 for view in self.jobs.values() if view.running)
         self.status_var.set(
-            i18n.t("运行中 {} 个任务", running) if running else i18n.t("空闲")
+            i18n.t("{} tasks running", running) if running else i18n.t("Idle")
         )
         self.stop_all_button.configure(state="normal" if running else "disabled")
-        self.notebook.tab(self.system_view, text=i18n.t("系统"))
+        self.notebook.tab(self.system_view, text=i18n.t("System"))
 
     def _unique_title(self, title: str) -> str:
-        base = truncate_text(title, 34) or "任务"
+        base = truncate_text(title, 34) or "Task"
         index = self._titles.get(base, 0) + 1
         self._titles[base] = index
         return base if index == 1 else "{} ({})".format(base, index)

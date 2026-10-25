@@ -40,8 +40,8 @@ class EditorTab(ttk.Frame):
 
         header = ttk.Frame(self)
         header.pack(fill="x")
-        ttk.Label(header, text="清单编辑器", style="Title.TLabel").pack(side="left")
-        self.path_var = tk.StringVar(value="未打开文件")
+        ttk.Label(header, text="Manifest Editor", style="Title.TLabel").pack(side="left")
+        self.path_var = tk.StringVar(value="No file open")
         path_label = ttk.Label(
             header, textvariable=self.path_var, style="Muted.TLabel"
         )
@@ -50,26 +50,26 @@ class EditorTab(ttk.Frame):
         toolbar = ttk.Frame(self)
         toolbar.pack(fill="x", pady=(10, 6))
         self.save_button = ttk.Button(
-            toolbar, text="保存  Ctrl+S", style="Accent.TButton", command=self.save
+            toolbar, text="Save  Ctrl+S", style="Accent.TButton", command=self.save
         )
         self.save_button.pack(side="left")
         self.reload_button = ttk.Button(
-            toolbar, text="重新加载", command=self.reload_file
+            toolbar, text="Reload", command=self.reload_file
         )
         self.reload_button.pack(side="left", padx=(6, 0))
         self.find_button = ttk.Button(
-            toolbar, text="查找  Ctrl+F", command=self.toggle_find
+            toolbar, text="Find  Ctrl+F", command=self.toggle_find
         )
         self.find_button.pack(side="left", padx=(6, 0))
         ttk.Button(
-            toolbar, text="打开目录", command=self._open_folder
+            toolbar, text="Open Folder", command=self._open_folder
         ).pack(side="right")
         ttk.Button(
-            toolbar, text="复制路径", command=self._copy_path
+            toolbar, text="Copy Path", command=self._copy_path
         ).pack(side="right", padx=(0, 6))
 
         self.find_bar = ttk.Frame(self)
-        ttk.Label(self.find_bar, text="查找", style="Muted.TLabel").pack(
+        ttk.Label(self.find_bar, text="Find", style="Muted.TLabel").pack(
             side="left", padx=(0, 5)
         )
         self.find_var = tk.StringVar()
@@ -78,13 +78,13 @@ class EditorTab(ttk.Frame):
         self.find_entry.bind("<Return>", lambda _event: self.find_next(False))
         self.find_entry.bind("<Escape>", lambda _event: self.toggle_find(False))
         ttk.Button(
-            self.find_bar, text="下一个", style="Small.TButton", command=lambda: self.find_next(False)
+            self.find_bar, text="Next", style="Small.TButton", command=lambda: self.find_next(False)
         ).pack(side="left", padx=(5, 0))
         ttk.Button(
-            self.find_bar, text="上一个", style="Small.TButton", command=lambda: self.find_next(True)
+            self.find_bar, text="Previous", style="Small.TButton", command=lambda: self.find_next(True)
         ).pack(side="left", padx=(4, 0))
         ttk.Button(
-            self.find_bar, text="关闭", style="Small.TButton", command=lambda: self.toggle_find(False)
+            self.find_bar, text="Close", style="Small.TButton", command=lambda: self.toggle_find(False)
         ).pack(side="left", padx=(4, 0))
 
         editor_frame = ttk.Frame(self)
@@ -137,7 +137,7 @@ class EditorTab(ttk.Frame):
         self.pos_var = tk.StringVar(value="Ln 1, Col 1")
         self.mode_var = tk.StringVar(value="UTF-8  ·  LF")
         self.syntax_var = tk.StringVar(value="")
-        self.dirty_var = tk.StringVar(value="未打开文件")
+        self.dirty_var = tk.StringVar(value="No file open")
         ttk.Label(status, textvariable=self.pos_var, style="Muted.TLabel").pack(
             side="left"
         )
@@ -233,8 +233,8 @@ class EditorTab(ttk.Frame):
             self.gutter.configure(state="normal")
             self.gutter.delete("1.0", "end")
             self.gutter.configure(state="disabled")
-            self.path_var.set("未打开文件")
-            self.dirty_var.set("未打开文件")
+            self.path_var.set("No file open")
+            self.dirty_var.set("No file open")
             self._set_enabled(False)
             return
         if self.path and self.path.resolve() == workspace.manifest.resolve():
@@ -249,7 +249,7 @@ class EditorTab(ttk.Frame):
         try:
             raw = path.read_bytes()
         except OSError as exc:
-            messagebox.showerror("读取失败", "无法读取：\n{}\n\n{}".format(path, exc), parent=self)
+            messagebox.showerror("Read failed", "Could not read:\n{}\n\n{}".format(path, exc), parent=self)
             return False
         self._bom = raw.startswith(b"\xef\xbb\xbf")
         try:
@@ -275,7 +275,7 @@ class EditorTab(ttk.Frame):
             self._dirty = False
             self._saved_mtime = self._safe_mtime(path)
             self.path_var.set(str(path))
-            self.dirty_var.set("已保存")
+            self.dirty_var.set("Saved")
             self.dirty_label.configure(foreground=self.colors["muted"])
             self.mode_var.set(
                 "UTF-8{}  ·  {}".format(
@@ -323,7 +323,7 @@ class EditorTab(ttk.Frame):
             return
         self.text.edit_modified(False)
         self._dirty = True
-        self.dirty_var.set("未保存")
+        self.dirty_var.set("Unsaved")
         self.dirty_label.configure(foreground=self.colors["warning"])
         self._update_line_numbers()
         self._schedule_highlight()
@@ -452,14 +452,14 @@ class EditorTab(ttk.Frame):
     def _editor_menu(self, event) -> None:
         menu = tk.Menu(self, tearoff=0)
         self.app.theme.style_menu(menu)
-        menu.add_command(label="撤销", command=self.text.edit_undo)
-        menu.add_command(label="重做", command=self.text.edit_redo)
+        menu.add_command(label="Undo", command=self.text.edit_undo)
+        menu.add_command(label="Redo", command=self.text.edit_redo)
         menu.add_separator()
-        menu.add_command(label="剪切", command=lambda: self.text.event_generate("<<Cut>>"))
-        menu.add_command(label="复制", command=lambda: self.text.event_generate("<<Copy>>"))
-        menu.add_command(label="粘贴", command=lambda: self.text.event_generate("<<Paste>>"))
+        menu.add_command(label="Cut", command=lambda: self.text.event_generate("<<Cut>>"))
+        menu.add_command(label="Copy", command=lambda: self.text.event_generate("<<Copy>>"))
+        menu.add_command(label="Paste", command=lambda: self.text.event_generate("<<Paste>>"))
         menu.add_separator()
-        menu.add_command(label="全选", command=self._select_all)
+        menu.add_command(label="Select All", command=self._select_all)
         i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -479,9 +479,9 @@ class EditorTab(ttk.Frame):
         if not self._dirty:
             return True
         answer = messagebox.askyesnocancel(
-            "未保存的修改",
-            "{} 有未保存的修改。\n\n是否先保存？".format(
-                self.path.name if self.path else "清单文件"
+            "Unsaved changes",
+            "{} has unsaved changes.\n\nSave first?".format(
+                self.path.name if self.path else "Manifest file"
             ),
             parent=self,
             default=messagebox.YES,
@@ -499,8 +499,8 @@ class EditorTab(ttk.Frame):
         error = self._validate_content(content)
         if error:
             if not messagebox.askyesno(
-                "TOML 语法错误",
-                "文件存在语法错误：\n\n{}\n\n仍然保存吗？".format(error),
+                "TOML syntax error",
+                "The file has a syntax error:\n\n{}\n\nSave anyway?".format(error),
                 parent=self,
             ):
                 return False
@@ -513,8 +513,8 @@ class EditorTab(ttk.Frame):
             and content != self._original_text
         ):
             if not messagebox.askyesno(
-                "文件已被修改",
-                "该文件已被其他程序修改。\n仍然覆盖保存吗？",
+                "File changed",
+                "The file was changed by another program.\nOverwrite anyway?",
                 parent=self,
             ):
                 return False
@@ -527,7 +527,7 @@ class EditorTab(ttk.Frame):
             temp_path.write_bytes(data)
             os.replace(temp_path, self.path)
         except OSError as exc:
-            messagebox.showerror("保存失败", "无法保存文件：\n{}".format(exc), parent=self)
+            messagebox.showerror("Save failed", "Could not save file:\n{}".format(exc), parent=self)
             return False
         finally:
             try:
@@ -539,14 +539,14 @@ class EditorTab(ttk.Frame):
         self._saved_mtime = self._safe_mtime(self.path)
         self._dirty = False
         self.text.edit_modified(False)
-        self.dirty_var.set("已保存 " + time.strftime("%H:%M:%S"))
+        self.dirty_var.set("Saved " + time.strftime("%H:%M:%S"))
         self.dirty_label.configure(foreground=self.colors["success"])
         self._syntax_ok = not bool(error)
         self._update_status()
         if self.workspace and not error:
             self.app.on_manifest_saved(self.path)
         elif error:
-            self.dirty_var.set("已保存（语法错误）")
+            self.dirty_var.set("Saved (syntax error)")
             self.dirty_label.configure(foreground=self.colors["danger"])
         return True
 
@@ -555,8 +555,8 @@ class EditorTab(ttk.Frame):
             return
         if self._dirty:
             if not messagebox.askyesno(
-                "重新加载",
-                "重新加载会丢弃未保存的修改，继续吗？",
+                "Reload",
+                "Reloading will discard unsaved changes. Continue?",
                 parent=self,
             ):
                 return
@@ -581,7 +581,7 @@ class EditorTab(ttk.Frame):
             return ""
         except Exception as exc:
             text = str(exc)
-            return text.splitlines()[0][:500] if text else "TOML 解析失败"
+            return text.splitlines()[0][:500] if text else "TOML parse failed"
 
     def _schedule_validation(self) -> None:
         if self._validate_job:
@@ -599,19 +599,19 @@ class EditorTab(ttk.Frame):
         error = self._validate_content(content)
         self._syntax_ok = not bool(error)
         if error:
-            self.syntax_var.set("语法错误")
+            self.syntax_var.set("Syntax error")
             self.syntax_label.configure(foreground=self.colors["danger"])
         else:
-            self.syntax_var.set("TOML 语法 OK")
+            self.syntax_var.set("TOML syntax OK")
             self.syntax_label.configure(foreground=self.colors["success"])
 
     def _update_status(self) -> None:
         self.pos_var.set(self.pos_var.get() or "Ln 1, Col 1")
         if self._syntax_ok is False:
-            self.syntax_var.set("语法错误")
+            self.syntax_var.set("Syntax error")
             self.syntax_label.configure(foreground=self.colors["danger"])
         elif self._syntax_ok is True:
-            self.syntax_var.set("TOML 语法 OK")
+            self.syntax_var.set("TOML syntax OK")
             self.syntax_label.configure(foreground=self.colors["success"])
 
     def _open_folder(self) -> None:

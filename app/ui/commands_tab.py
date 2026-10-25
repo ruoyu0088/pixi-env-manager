@@ -42,52 +42,52 @@ class CommandSpec:
 def _codes() -> List[CommandSpec]:
     env_field = FieldSpec(
         key="environment",
-        label="环境",
+        label="Environment",
         kind="env",
         default="current",
-        help="要操作/使用的命名环境。",
+        help="Named environment to use or modify.",
     )
     platform_field = FieldSpec(
         key="platform",
-        label="平台",
+        label="Platform",
         kind="platform",
-        help="例如 win-64、linux-64；留空使用默认平台。",
+        help="For example win-64 or linux-64; leave blank for the default platform.",
     )
     return [
         CommandSpec(
             key="add",
-            title="添加依赖",
-            group="依赖",
-            summary="向 workspace 添加 conda 或 PyPI 依赖。",
+            title="Add Dependency",
+            group="Dependencies",
+            summary="Add conda or PyPI dependencies to the workspace.",
             help_args=("add",),
             refresh=True,
             fields=[
                 FieldSpec(
                     "specs",
-                    "包规格",
+                    "Package specification",
                     required=True,
-                    help="空格分隔，例如 numpy pandas 或 numpy=2.0；PyPI 包可写 pkg==1.2。",
+                    help="Space-separated, e.g. numpy pandas or numpy=2.0; PyPI packages may use pkg==1.2.",
                 ),
-                FieldSpec("pypi", "使用 PyPI", kind="check", help="添加 pypi 依赖而不是 conda 依赖。"),
-                FieldSpec("feature", "Feature", help="写入指定 feature，留空为 default。"),
+                FieldSpec("pypi", "Use PyPI", kind="check", help="Add a PyPI dependency instead of a conda dependency."),
+                FieldSpec("feature", "Feature", help="Write to a specific feature; leave blank for default."),
                 env_field,
                 platform_field,
-                FieldSpec("index", "PyPI 索引", help="仅 PyPI：自定义 index URL。"),
-                FieldSpec("editable", "Editable", kind="check", help="仅 PyPI：以 editable 方式添加本地包。"),
-                FieldSpec("no_install", "只写清单不安装", kind="check", help="对应 --no-install。"),
+                FieldSpec("index", "PyPI index", help="PyPI only: custom index URL."),
+                FieldSpec("editable", "Editable", kind="check", help="PyPI only: add a local package in editable mode."),
+                FieldSpec("no_install", "Manifest only (no install)", kind="check", help="Corresponds to --no-install."),
             ],
         ),
         CommandSpec(
             key="remove",
-            title="移除依赖",
-            group="依赖",
-            summary="从 workspace 中移除依赖。",
+            title="Remove Dependency",
+            group="Dependencies",
+            summary="Remove dependencies from the workspace.",
             help_args=("remove",),
             dangerous=True,
             refresh=True,
             fields=[
-                FieldSpec("specs", "包规格", required=True, help="空格分隔的包名。"),
-                FieldSpec("pypi", "使用 PyPI", kind="check"),
+                FieldSpec("specs", "Package specification", required=True, help="Space-separated package names."),
+                FieldSpec("pypi", "Use PyPI", kind="check"),
                 FieldSpec("feature", "Feature"),
                 env_field,
                 platform_field,
@@ -95,162 +95,162 @@ def _codes() -> List[CommandSpec]:
         ),
         CommandSpec(
             key="update",
-            title="更新依赖（兼容范围）",
-            group="依赖",
-            summary="在现有版本约束内更新依赖并写入 lock 文件。",
+            title="Update (compatible)",
+            group="Dependencies",
+            summary="Update dependencies within current constraints and write the lock file.",
             help_args=("update",),
             refresh=True,
             fields=[
-                FieldSpec("packages", "包名", help="留空更新全部；多个包用空格分隔。"),
+                FieldSpec("packages", "Package name", help="Leave blank to update all; separate multiple packages with spaces."),
                 env_field,
                 platform_field,
-                FieldSpec("dry_run", "只看计划（dry-run）", kind="check"),
+                FieldSpec("dry_run", "Plan only (dry-run)", kind="check"),
             ],
         ),
         CommandSpec(
             key="upgrade",
-            title="升级依赖（最新版本）",
-            group="依赖",
-            summary="放宽版本约束，把依赖升级到更新版本。可能修改 pixi.toml。",
+            title="Upgrade (latest)",
+            group="Dependencies",
+            summary="Relax constraints and upgrade dependencies. This may modify pixi.toml.",
             help_args=("upgrade",),
             dangerous=True,
             refresh=True,
             fields=[
-                FieldSpec("packages", "包名", help="留空升级全部；多个包用空格分隔。"),
+                FieldSpec("packages", "Package name", help="Leave blank to upgrade all; separate multiple packages with spaces."),
                 FieldSpec("feature", "Feature"),
                 env_field,
-                FieldSpec("dry_run", "只看计划（dry-run）", kind="check"),
+                FieldSpec("dry_run", "Plan only (dry-run)", kind="check"),
             ],
         ),
         CommandSpec(
             key="search",
-            title="搜索包",
-            group="依赖",
-            summary="在配置的 conda 频道中搜索包。",
+            title="Search Packages",
+            group="Dependencies",
+            summary="Search packages in configured conda channels.",
             help_args=("search",),
             fields=[
-                FieldSpec("package", "包名", required=True),
-                FieldSpec("channel", "频道", help="可选，例如 conda-forge。"),
+                FieldSpec("package", "Package name", required=True),
+                FieldSpec("channel", "Channel", help="Optional, e.g. conda-forge."),
                 platform_field,
-                FieldSpec("limit", "版本数", default="5", help="显示的版本数量，默认 5。"),
+                FieldSpec("limit", "Version count", default="5", help="Number of versions to show (default 5)."),
             ],
         ),
         CommandSpec(
             key="install",
-            title="安装 / 更新环境",
-            group="环境",
-            summary="根据清单和 lock 文件安装或更新环境。",
+            title="Install / Update",
+            group="Environment",
+            summary="Install or update the environment from the manifest and lock file.",
             help_args=("install",),
             refresh=True,
             fields=[
                 env_field,
-                FieldSpec("frozen", "Frozen", kind="check", help="严格使用 lock 文件，不更新锁文件。"),
-                FieldSpec("locked", "Locked", kind="check", help="检查 lock 文件是否最新，否则失败。"),
+                FieldSpec("frozen", "Frozen", kind="check", help="Use the lock file strictly; do not update it."),
+                FieldSpec("locked", "Locked", kind="check", help="Check that the lock file is current; fail otherwise."),
             ],
         ),
         CommandSpec(
             key="lock",
-            title="锁定环境",
-            group="环境",
-            summary="求解环境并更新 pixi.lock，但不安装环境。",
+            title="Lock Environment",
+            group="Environment",
+            summary="Solve the environment and update pixi.lock without installing.",
             help_args=("lock",),
             refresh=True,
             fields=[
-                FieldSpec("check", "只检查是否需要更新", kind="check"),
-                FieldSpec("dry_run", "只计算不写入", kind="check"),
+                FieldSpec("check", "Check only", kind="check"),
+                FieldSpec("dry_run", "Compute only, do not write", kind="check"),
             ],
         ),
         CommandSpec(
             key="clean",
-            title="清理环境",
-            group="环境",
-            summary="删除 .pixi 中的环境目录；不会删除 manifest 或 lock 文件。",
+            title="Clean Environment",
+            group="Environment",
+            summary="Remove the environment directory under .pixi; manifest and lock files are kept.",
             help_args=("clean",),
             dangerous=True,
             refresh=True,
             fields=[
                 env_field,
-                FieldSpec("activation_cache", "只清理激活缓存", kind="check"),
+                FieldSpec("activation_cache", "Activation cache only", kind="check"),
             ],
         ),
         CommandSpec(
             key="reinstall",
-            title="重新安装环境",
-            group="环境",
-            summary="更新 lock 文件并重新安装所选环境。",
+            title="Reinstall Environment",
+            group="Environment",
+            summary="Update the lock file and reinstall the selected environment.",
             help_args=("reinstall",),
             dangerous=True,
             refresh=True,
             fields=[
                 env_field,
-                FieldSpec("all", "所有环境", kind="check", help="重新安装全部环境，忽略“环境”字段。"),
-                FieldSpec("packages", "指定包", help="只重装这些包；留空重装整个环境。"),
+                FieldSpec("all", "All environments", kind="check", help="Reinstall all environments, ignoring the Environment field."),
+                FieldSpec("packages", "Specific packages", help="Reinstall only these packages; leave blank for the whole environment."),
             ],
         ),
         CommandSpec(
             key="run",
-            title="运行任务 / 命令",
-            group="任务",
-            summary="在选中环境中运行 task 或任意命令。",
+            title="Run Task / Command",
+            group="Task",
+            summary="Run a task or arbitrary command in the selected environment.",
             help_args=("run",),
             fields=[
                 FieldSpec(
                     "task",
-                    "Task / 命令",
+                    "Task / Command",
                     kind="task",
                     required=True,
-                    help="可以直接写 task 名，也可以写 python script.py 等命令。",
+                    help="Enter a task name or a command such as python script.py.",
                 ),
                 env_field,
-                FieldSpec("clean_env", "Clean env", kind="check", help="忽略当前 shell 环境变量。"),
-                FieldSpec("skip_deps", "跳过任务依赖", kind="check"),
-                FieldSpec("dry_run", "只打印不执行", kind="check"),
+                FieldSpec("clean_env", "Clean env", kind="check", help="Ignore the current shell environment."),
+                FieldSpec("skip_deps", "Skip task dependencies", kind="check"),
+                FieldSpec("dry_run", "Print only, do not execute", kind="check"),
             ],
         ),
         CommandSpec(
             key="task-add",
-            title="添加 Task",
-            group="任务",
-            summary="向 workspace 添加一个 task。",
+            title="Add Task",
+            group="Task",
+            summary="Add a task to the workspace.",
             help_args=("task", "add"),
             refresh=True,
             fields=[
-                FieldSpec("name", "Task 名称", required=True),
-                FieldSpec("command", "命令", required=True, help="例如 pytest -q 或 python build.py。"),
-                FieldSpec("description", "描述"),
-                FieldSpec("cwd", "工作目录", help="相对于 workspace 根目录。"),
-                FieldSpec("depends_on", "依赖 Task", help="空格分隔的 task 名。"),
+                FieldSpec("name", "Task name", required=True),
+                FieldSpec("command", "Command", required=True, help="For example pytest -q or python build.py."),
+                FieldSpec("description", "Description"),
+                FieldSpec("cwd", "Working directory", help="Relative to the workspace root."),
+                FieldSpec("depends_on", "Depends on tasks", help="Space-separated task names."),
                 FieldSpec("feature", "Feature"),
                 env_field,
             ],
         ),
         CommandSpec(
             key="task-remove",
-            title="移除 Task",
-            group="任务",
-            summary="从 workspace 中移除 task。",
+            title="Remove Task",
+            group="Task",
+            summary="Remove a task from the workspace.",
             help_args=("task", "remove"),
             dangerous=True,
             refresh=True,
             fields=[
-                FieldSpec("names", "Task 名称", required=True, help="空格分隔。"),
+                FieldSpec("names", "Task name", required=True, help="Space-separated."),
                 FieldSpec("feature", "Feature"),
                 env_field,
             ],
         ),
         CommandSpec(
             key="info",
-            title="环境信息",
-            group="环境",
-            summary="显示 Pixi、workspace 和环境信息。",
+            title="Environment Info",
+            group="Environment",
+            summary="Show Pixi, workspace and environment information.",
             help_args=("info",),
-            fields=[FieldSpec("extended", "包含缓存和环境大小", kind="check")],
+            fields=[FieldSpec("extended", "Include cache and environment sizes", kind="check")],
         ),
         CommandSpec(
             key="shell",
-            title="打开 Pixi Shell",
-            group="工作区",
-            summary="在新终端中激活环境并打开 shell。",
+            title="Open Pixi Shell",
+            group="Workspace",
+            summary="Activate the environment and open a shell in a new terminal.",
             help_args=("shell",),
             use_manifest=True,
             terminal=True,
@@ -258,23 +258,23 @@ def _codes() -> List[CommandSpec]:
         ),
         CommandSpec(
             key="init",
-            title="初始化工作区",
-            group="工作区",
-            summary="创建一个新的 Pixi 工作区。",
+            title="Initialize Workspace",
+            group="Workspace",
+            summary="Create a new Pixi workspace.",
             help_args=("init",),
             use_manifest=False,
             fields=[
                 FieldSpec(
                     "path",
-                    "路径",
+                    "Path",
                     required=True,
-                    help="新工作区目录，建议使用绝对路径。",
+                    help="New workspace directory; an absolute path is recommended.",
                 ),
-                FieldSpec("channel", "频道", default="conda-forge"),
-                FieldSpec("platform", "平台", help="例如 win-64；留空由 Pixi 决定。"),
+                FieldSpec("channel", "Channel", default="conda-forge"),
+                FieldSpec("platform", "Platform", help="For example win-64; leave blank for Pixi to decide."),
                 FieldSpec(
                     "format",
-                    "格式",
+                    "Format",
                     kind="combo",
                     default="pixi",
                     values=("pixi", "pyproject"),
@@ -300,9 +300,9 @@ class CommandsTab(ttk.Frame):
 
         header = ttk.Frame(self)
         header.pack(fill="x")
-        ttk.Label(header, text="命令中心", style="Title.TLabel").pack(side="left")
+        ttk.Label(header, text="Command Center", style="Title.TLabel").pack(side="left")
         ttk.Button(
-            header, text="Pixi CLI 文档", command=self._open_docs
+            header, text="Pixi CLI Docs", command=self._open_docs
         ).pack(side="right")
 
         paned = ttk.Panedwindow(self, orient="horizontal")
@@ -339,7 +339,7 @@ class CommandsTab(ttk.Frame):
         self.form_scroll = ScrollableFrame(middle, style="TFrame")
         middle.add(self.form_scroll, weight=2)
 
-        help_frame = ttk.LabelFrame(middle, text="命令帮助", padding=(8, 6))
+        help_frame = ttk.LabelFrame(middle, text="Command Help", padding=(8, 6))
         middle.add(help_frame, weight=1)
         self.help_text = tk.Text(
             help_frame,
@@ -359,7 +359,7 @@ class CommandsTab(ttk.Frame):
         self.help_text.pack(side="left", fill="both", expand=True)
         help_scroll.pack(side="right", fill="y")
 
-        preview_frame = ttk.LabelFrame(right, text="命令预览", padding=(8, 6))
+        preview_frame = ttk.LabelFrame(right, text="Command Preview", padding=(8, 6))
         preview_frame.pack(fill="x", pady=(8, 0))
         self.preview = tk.Text(
             preview_frame,
@@ -378,16 +378,16 @@ class CommandsTab(ttk.Frame):
         action_frame.pack(fill="x", pady=(8, 0))
         self.run_button = ttk.Button(
             action_frame,
-            text="运行",
+            text="Run",
             style="Accent.TButton",
             command=self._run_current,
         )
         self.run_button.pack(side="left")
         ttk.Button(
-            action_frame, text="复制命令", command=self._copy_preview
+            action_frame, text="Copy Command", command=self._copy_preview
         ).pack(side="left", padx=(6, 0))
 
-        manual = ttk.LabelFrame(self, text="手动命令", padding=(9, 7))
+        manual = ttk.LabelFrame(self, text="Manual Command", padding=(9, 7))
         manual.pack(fill="x", pady=(10, 0))
         manual_row = ttk.Frame(manual)
         manual_row.pack(fill="x")
@@ -409,22 +409,22 @@ class CommandsTab(ttk.Frame):
         self.auto_manifest_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             manual_row,
-            text="自动使用当前工作区",
+            text="Use current workspace",
             variable=self.auto_manifest_var,
             style="Card.TCheckbutton",
         ).pack(side="left", padx=(8, 0))
         ttk.Button(
             manual_row,
-            text="运行",
+            text="Run",
             style="Accent.TButton",
             command=self._run_manual,
         ).pack(side="left", padx=(8, 0))
         ttk.Button(
-            manual_row, text="复制", command=self._copy_manual
+            manual_row, text="Copy", command=self._copy_manual
         ).pack(side="left", padx=(4, 0))
         ttk.Label(
             manual,
-            text="直接输入 pixi 后面的参数，例如 add numpy；也可以粘贴完整 pixi 命令。命令按参数直接执行，不经过 shell。",
+            text="Enter arguments after pixi, e.g. add numpy; a full pixi command is also accepted. Commands run directly without a shell.",
             style="MutedCard.TLabel",
             wraplength=960,
         ).pack(anchor="w", pady=(5, 0))
@@ -510,7 +510,7 @@ class CommandsTab(ttk.Frame):
     def _env_display_values(self) -> Tuple[str, ...]:
         workspace = self.app.workspace
         names = workspace.env_names if workspace else []
-        return tuple([i18n.t("（不指定）")] + names)
+        return tuple([i18n.t("(not specified)")] + names)
 
     def _platform_values(self) -> Tuple[str, ...]:
         workspace = self.app.workspace
@@ -521,7 +521,7 @@ class CommandsTab(ttk.Frame):
                     values.add(env.platform)
             values.add(workspace.platform)
         return tuple(
-            [i18n.t("（不指定）")] + sorted(value for value in values if value)
+            [i18n.t("(not specified)")] + sorted(value for value in values if value)
         )
 
     def _task_values(self) -> Tuple[str, ...]:
@@ -555,10 +555,10 @@ class CommandsTab(ttk.Frame):
 
     def _remember_environment(self, variable: tk.Variable) -> None:
         value = str(variable.get())
-        self.shared_environment = "" if value == i18n.t("（不指定）") else value
+        self.shared_environment = "" if value == i18n.t("(not specified)") else value
 
     def _environment_value(self, spec: CommandSpec) -> str:
-        placeholder = i18n.t("（不指定）")
+        placeholder = i18n.t("(not specified)")
         if self._base_target(spec):
             return placeholder
         values = self._env_display_values()
@@ -574,7 +574,7 @@ class CommandsTab(ttk.Frame):
         if field.kind == "env":
             return self._environment_value(spec)
         if field.default == "current":
-            return self.app.environment or i18n.t("（不指定）")
+            return self.app.environment or i18n.t("(not specified)")
         return field.default
 
     def _build_form(self, spec: CommandSpec) -> None:
@@ -593,7 +593,7 @@ class CommandsTab(ttk.Frame):
                 Tooltip(label, field.help)
             if field.kind == "check":
                 var = tk.BooleanVar(value=False)
-                widget = ttk.Checkbutton(inner, variable=var, text="启用")
+                widget = ttk.Checkbutton(inner, variable=var, text="Enabled")
                 widget.grid(row=row, column=1, sticky="w", pady=4)
                 self.vars[field.key] = var
                 self.field_widgets[field.key] = widget
@@ -668,7 +668,7 @@ class CommandsTab(ttk.Frame):
         if self._base_target(spec):
             ttk.Label(
                 inner,
-                text="基础依赖模式：此命令作用于所有环境。",
+                text="Base-dependency mode: this command affects all environments.",
                 style="Muted.TLabel",
                 wraplength=520,
                 justify="left",
@@ -676,9 +676,9 @@ class CommandsTab(ttk.Frame):
         inner.columnconfigure(1, weight=1)
         self.form_scroll.canvas.yview_moveto(0)
         if spec.terminal:
-            self.run_button.configure(text="打开终端")
+            self.run_button.configure(text="Open Terminal")
         else:
-            self.run_button.configure(text="运行")
+            self.run_button.configure(text="Run")
         self._update_preview()
         self._load_help(spec)
         i18n.localize_widget_tree(self)
@@ -690,7 +690,7 @@ class CommandsTab(ttk.Frame):
             return bool(variable.get())
         value = variable.get() if variable is not None else ""
         value = str(value).strip()
-        if value == i18n.t("（不指定）"):
+        if value == i18n.t("(not specified)"):
             return ""
         return value
 
@@ -708,7 +708,7 @@ class CommandsTab(ttk.Frame):
         if key == "add":
             specs = self._tokens("specs")
             if not specs:
-                return [], "请填写要添加的包。"
+                return [], "Enter package(s) to add."
             args = ["add"]
             if self._check("pypi"):
                 args.append("--pypi")
@@ -729,7 +729,7 @@ class CommandsTab(ttk.Frame):
         elif key == "remove":
             specs = self._tokens("specs")
             if not specs:
-                return [], "请填写要移除的包。"
+                return [], "Enter package(s) to remove."
             args = ["remove"]
             if self._check("pypi"):
                 args.append("--pypi")
@@ -767,7 +767,7 @@ class CommandsTab(ttk.Frame):
         elif key == "search":
             package = self._value("package")
             if not package:
-                return [], "请填写包名。"
+                return [], "Enter a package name."
             args = ["search", package]
             channel = self._value("channel")
             if channel:
@@ -811,7 +811,7 @@ class CommandsTab(ttk.Frame):
         elif key == "run":
             task = self._value("task")
             if not task:
-                return [], "请填写 task 名称或命令。"
+                return [], "Enter a task name or command."
             args = ["run"]
             env = self._value("environment")
             if env:
@@ -827,7 +827,7 @@ class CommandsTab(ttk.Frame):
             name = self._value("name")
             command = self._value("command")
             if not name or not command:
-                return [], "Task 名称和命令不能为空。"
+                return [], "Task name and command cannot be empty."
             args = ["task", "add", name, command]
             for field_key, flag in (
                 ("description", "--description"),
@@ -844,7 +844,7 @@ class CommandsTab(ttk.Frame):
         elif key == "task-remove":
             names = self._tokens("names")
             if not names:
-                return [], "请填写要移除的 task 名称。"
+                return [], "Enter task name(s) to remove."
             args = ["task", "remove"] + names
             for field_key, flag in (
                 ("feature", "--feature"),
@@ -866,7 +866,7 @@ class CommandsTab(ttk.Frame):
             args = ["init"]
             path = self._value("path")
             if not path:
-                return [], "请填写新工作区路径。"
+                return [], "Enter a new workspace path."
             args.append(path)
             channel = self._value("channel")
             if channel:
@@ -892,7 +892,7 @@ class CommandsTab(ttk.Frame):
             )
             self._set_preview(preview)
         except Exception as exc:
-            self._set_preview("无法生成命令：{}".format(exc))
+            self._set_preview("Failed to build command: {}".format(exc))
 
     def _set_preview(self, text: str) -> None:
         self.preview.configure(state="normal")
@@ -911,7 +911,7 @@ class CommandsTab(ttk.Frame):
         if cached:
             self._set_help(cached)
             return
-        self._set_help("正在加载帮助…")
+        self._set_help("Loading help…")
         self._help_request += 1
         request_id = self._help_request
         self.app.help_async(
@@ -938,7 +938,7 @@ class CommandsTab(ttk.Frame):
             return
         args, error = self._build_args(spec)
         if error:
-            messagebox.showinfo("命令参数", error, parent=self)
+            messagebox.showinfo("Command arguments", error, parent=self)
             return
         if spec.key == "remove":
             args = self._resolve_remove_scope(args)
@@ -987,22 +987,22 @@ class CommandsTab(ttk.Frame):
         if not target:
             if base_names and (env_names or other_names):
                 messagebox.showinfo(
-                    "删除作用域冲突",
-                    i18n.t("同一命令不能同时删除基础依赖和环境专属依赖。"),
+                    "Remove scope conflict",
+                    i18n.t("A single command cannot remove both base and environment-only dependencies."),
                     parent=self,
                 )
                 return None
             if not base_names:
                 messagebox.showinfo(
-                    "删除基础依赖",
-                    i18n.t("该包不在基础依赖中：{}").format(", ".join(names)),
+                    "Remove base dependency",
+                    i18n.t("These packages are not base dependencies: {}").format(", ".join(names)),
                     parent=self,
                 )
                 return None
             if not messagebox.askyesno(
-                "删除基础依赖",
+                "Remove base dependency",
                 i18n.t(
-                    "{} 属于基础依赖，删除后所有环境都会受影响。\n\n是否从基础依赖中删除？"
+                    "{} is a base dependency. Removing it affects all environments.\n\nRemove it from the base dependencies?"
                 ).format(", ".join(base_names)),
                 parent=self,
             ):
@@ -1010,11 +1010,11 @@ class CommandsTab(ttk.Frame):
             return args
         if base_names and (env_names or other_names):
             messagebox.showinfo(
-                "删除作用域冲突",
+                "Remove scope conflict",
                 "{}\n{}\n{}".format(
-                    i18n.t("同一命令不能同时删除基础依赖和环境专属依赖。"),
-                    i18n.t("基础依赖：{}").format(", ".join(base_names)),
-                    i18n.t("其他依赖：{}").format(
+                    i18n.t("A single command cannot remove both base and environment-only dependencies."),
+                    i18n.t("Base dependencies: {}").format(", ".join(base_names)),
+                    i18n.t("Other dependencies: {}").format(
                         ", ".join(env_names + other_names)
                     ),
                 ),
@@ -1024,9 +1024,9 @@ class CommandsTab(ttk.Frame):
         if not base_names:
             return args
         if not messagebox.askyesno(
-            "删除基础依赖",
+            "Remove base dependency",
             i18n.t(
-                "{} 属于基础依赖，删除后所有环境都会受影响。\n\n是否从基础依赖中删除？"
+                "{} is a base dependency. Removing it affects all environments.\n\nRemove it from the base dependencies?"
             ).format(", ".join(base_names)),
             parent=self,
         ):
@@ -1052,13 +1052,13 @@ class CommandsTab(ttk.Frame):
     def _run_manual(self) -> None:
         tokens = self._manual_tokens()
         if not tokens:
-            messagebox.showinfo("手动命令", "请输入 pixi 命令。", parent=self)
+            messagebox.showinfo("Manual Command", "Enter a pixi command.", parent=self)
             return
         self.app.state.add_command_history(subprocess_line(tokens))
         self.manual_combo.configure(values=self._command_history())
         self.app.run_pixi_command(
             tokens,
-            title="手动命令",
+            title="Manual Command",
             refresh=False,
             dangerous=False,
             use_manifest=bool(self.auto_manifest_var.get()),

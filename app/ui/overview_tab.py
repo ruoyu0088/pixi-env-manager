@@ -21,10 +21,10 @@ class OverviewTab(ttk.Frame):
 
         self.header = ttk.Frame(self)
         self.header.pack(fill="x")
-        ttk.Label(self.header, text="工作区概览", style="Title.TLabel").pack(
+        ttk.Label(self.header, text="Workspace Overview", style="Title.TLabel").pack(
             side="left"
         )
-        self.name_var = tk.StringVar(value="未打开环境")
+        self.name_var = tk.StringVar(value="No environment")
         ttk.Label(
             self.header, textvariable=self.name_var, style="Muted.TLabel"
         ).pack(side="left", padx=(10, 0), pady=(6, 0))
@@ -33,7 +33,7 @@ class OverviewTab(ttk.Frame):
         self.body.pack(fill="both", expand=True, pady=(12, 0))
 
         self.workspace_card = ttk.LabelFrame(
-            self.body, text="工作区", padding=(12, 10)
+            self.body, text="Workspace", padding=(12, 10)
         )
         self.workspace_card.pack(fill="x")
         self.path_var = tk.StringVar(value="—")
@@ -41,31 +41,31 @@ class OverviewTab(ttk.Frame):
         self.platform_var = tk.StringVar(value="—")
         self.pixi_var = tk.StringVar(value="—")
         self.lock_var = tk.StringVar(value="—")
-        self._add_row(self.workspace_card, 0, "清单", self.path_var, copy=True)
-        self._add_row(self.workspace_card, 1, "目录", self.root_var, copy=True)
-        self._add_row(self.workspace_card, 2, "平台", self.platform_var)
+        self._add_row(self.workspace_card, 0, "Manifest", self.path_var, copy=True)
+        self._add_row(self.workspace_card, 1, "Directory", self.root_var, copy=True)
+        self._add_row(self.workspace_card, 2, "Platform", self.platform_var)
         self._add_row(self.workspace_card, 3, "Pixi", self.pixi_var)
-        self._add_row(self.workspace_card, 4, "锁文件", self.lock_var)
+        self._add_row(self.workspace_card, 4, "Lock file", self.lock_var)
 
         actions = ttk.Frame(self.workspace_card)
         actions.grid(row=5, column=0, columnspan=3, sticky="w", pady=(10, 0))
         self.install_button = ttk.Button(
             actions,
-            text="安装 / 更新环境",
+            text="Install / Update",
             style="Accent.TButton",
             command=self.app.install_env,
         )
         self.install_button.pack(side="left")
         self.lock_button = ttk.Button(
-            actions, text="重新锁定", command=self.app.lock_env
+            actions, text="Relock", command=self.app.lock_env
         )
         self.lock_button.pack(side="left", padx=(7, 0))
         self.clean_button = ttk.Button(
-            actions, text="清理环境…", command=self.app.clean_env
+            actions, text="Clean Environment…", command=self.app.clean_env
         )
         self.clean_button.pack(side="left", padx=(7, 0))
         self.open_button = ttk.Button(
-            actions, text="打开目录", command=self.app.open_workspace_folder
+            actions, text="Open Folder", command=self.app.open_workspace_folder
         )
         self.open_button.pack(side="left", padx=(7, 0))
 
@@ -80,7 +80,7 @@ class OverviewTab(ttk.Frame):
         self.warning_label.pack(fill="x", pady=(8, 0))
 
         env_frame = ttk.LabelFrame(
-            self.body, text="命名环境", padding=(10, 8)
+            self.body, text="Environments", padding=(10, 8)
         )
         env_frame.pack(fill="both", expand=True, pady=(10, 0))
         columns = ("name", "features", "deps", "prefix")
@@ -88,10 +88,10 @@ class OverviewTab(ttk.Frame):
             env_frame, columns=columns, show="headings", height=6
         )
         headings = {
-            "name": "环境",
+            "name": "Environment",
             "features": "Feature",
-            "deps": "依赖数",
-            "prefix": "环境路径",
+            "deps": "Dependency count",
+            "prefix": "Environment path",
         }
         widths = {"name": 120, "features": 170, "deps": 70, "prefix": 470}
         for column in columns:
@@ -146,7 +146,7 @@ class OverviewTab(ttk.Frame):
         if copy:
             ttk.Button(
                 parent,
-                text="复制",
+                text="Copy",
                 style="Small.TButton",
                 command=lambda v=value_var: self._copy(v.get()),
             ).grid(row=row, column=2, padx=(8, 0))
@@ -172,7 +172,7 @@ class OverviewTab(ttk.Frame):
     def refresh(self) -> None:
         workspace = self.workspace
         if workspace is None:
-            self.name_var.set("未打开环境")
+            self.name_var.set("No environment")
             for var in (
                 self.path_var,
                 self.root_var,
@@ -193,11 +193,11 @@ class OverviewTab(ttk.Frame):
         self.platform_var.set(workspace.platform or "—")
         self.pixi_var.set(workspace.pixi_version or "—")
         if not workspace.lock_exists:
-            self.lock_var.set("不存在（尚未安装 / 锁定）")
+            self.lock_var.set("Missing (not installed/locked)")
         elif workspace.lock_is_stale():
-            self.lock_var.set("清单比 pixi.lock 新（建议重新锁定）")
+            self.lock_var.set("Manifest is newer than pixi.lock (relock recommended)")
         elif workspace.lock_is_unknown():
-            self.lock_var.set("锁文件存在（无法确认是否最新）")
+            self.lock_var.set("Lock file exists (freshness could not be verified)")
         else:
             self.lock_var.set(str(workspace.lock_path))
 
@@ -211,7 +211,7 @@ class OverviewTab(ttk.Frame):
                     env.name,
                     ", ".join(env.features),
                     len(env.dependencies) + len(env.pypi_dependencies),
-                    env.prefix or "（尚未安装）",
+                    env.prefix or "(not installed)",
                 ),
             )
         if self.env_name and self.env_tree.exists(self.env_name):
@@ -222,7 +222,7 @@ class OverviewTab(ttk.Frame):
         explicit = sum(1 for package in packages if package.is_explicit)
         tasks = workspace.tasks_for_env(self.env_name)
         self.stats_var.set(
-            "当前环境: {}  ·  已安装 {} 个包（用户显式 {} 个）  ·  {} 个 task  ·  {} 个命名环境".format(
+            "Environment: {}  ·  {} package(s) installed ({} explicit)  ·  {} task(s)  ·  {} environment(s)".format(
                 self.env_name or "—",
                 len(packages),
                 explicit,
@@ -234,18 +234,18 @@ class OverviewTab(ttk.Frame):
         warnings = []
         current = workspace.get_env(self.env_name)
         if current and not current.installed:
-            warnings.append("当前环境尚未安装，库列表和运行功能可能不可用。")
+            warnings.append("The current environment is not installed; packages and run functions may be unavailable.")
         if not workspace.lock_exists:
-            warnings.append("还没有 pixi.lock，建议执行一次“安装 / 更新环境”。")
+            warnings.append("No pixi.lock yet. Run Install / Update first.")
         elif workspace.lock_is_stale():
-            warnings.append("pixi.lock 已过期，建议重新锁定环境。")
+            warnings.append("pixi.lock is stale; relock the environment.")
         elif workspace.lock_is_unknown():
-            warnings.append("无法确认 pixi.lock 是否最新，建议重新锁定。")
+            warnings.append("Could not verify whether pixi.lock is current; relocking is recommended.")
         error = workspace.package_errors.get(self.env_name)
         if error:
-            warnings.append("读取库列表失败：" + error.splitlines()[0])
+            warnings.append("Failed to read packages: " + error.splitlines()[0])
         if workspace.task_error:
-            warnings.append("读取 task 失败：" + workspace.task_error.splitlines()[0])
+            warnings.append("Failed to read tasks: " + workspace.task_error.splitlines()[0])
         if warnings:
             self.warning_var.set("  ".join("⚠ " + item for item in warnings))
             self.warning_label.configure(style="Warning.TLabel")
@@ -276,9 +276,9 @@ class OverviewTab(ttk.Frame):
         menu = tk.Menu(self, tearoff=0)
         self.app.theme.style_menu(menu)
         menu.add_command(
-            label="切换到此环境", command=lambda: self.app.set_environment(row)
+            label="Switch to this environment", command=lambda: self.app.set_environment(row)
         )
-        menu.add_command(label="复制环境路径", command=lambda: self._copy_env_path(row))
+        menu.add_command(label="Copy Environment Path", command=lambda: self._copy_env_path(row))
         i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)

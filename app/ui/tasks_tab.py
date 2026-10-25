@@ -24,8 +24,8 @@ class TasksTab(ttk.Frame):
 
         header = ttk.Frame(self)
         header.pack(fill="x")
-        ttk.Label(header, text="任务", style="Title.TLabel").pack(side="left")
-        self.headline_var = tk.StringVar(value="未打开环境")
+        ttk.Label(header, text="Task", style="Title.TLabel").pack(side="left")
+        self.headline_var = tk.StringVar(value="No environment")
         ttk.Label(
             header, textvariable=self.headline_var, style="Muted.TLabel"
         ).pack(side="left", padx=(10, 0), pady=(6, 0))
@@ -37,7 +37,7 @@ class TasksTab(ttk.Frame):
         toolbar = ttk.Frame(self)
         self.toolbar = toolbar
         toolbar.pack(fill="x", pady=(10, 6))
-        ttk.Label(toolbar, text="搜索", style="Muted.TLabel").pack(
+        ttk.Label(toolbar, text="Search", style="Muted.TLabel").pack(
             side="left", padx=(0, 4)
         )
         self.search_var = tk.StringVar()
@@ -45,20 +45,20 @@ class TasksTab(ttk.Frame):
         self.search_entry.pack(side="left")
         self.search_var.trace_add("write", lambda *_: self.refresh_view())
         self.refresh_button = ttk.Button(
-            toolbar, text="刷新", command=self.app.refresh_current
+            toolbar, text="Refresh", command=self.app.refresh_current
         )
         self.refresh_button.pack(side="right")
         self.terminal_button = ttk.Button(
-            toolbar, text="在终端运行", command=lambda: self._launch(terminal=True)
+            toolbar, text="Run in Terminal", command=lambda: self._launch(terminal=True)
         )
         self.terminal_button.pack(side="right", padx=(0, 6))
         self.args_button = ttk.Button(
-            toolbar, text="带参数启动…", command=self._launch_with_args
+            toolbar, text="Run with Arguments…", command=self._launch_with_args
         )
         self.args_button.pack(side="right", padx=(0, 6))
         self.run_button = ttk.Button(
             toolbar,
-            text="启动选中任务",
+            text="Run Selected Task",
             style="Accent.TButton",
             command=lambda: self._launch(terminal=False),
         )
@@ -76,11 +76,11 @@ class TasksTab(ttk.Frame):
             table_frame, columns=columns, show="headings", selectmode="browse"
         )
         headings = {
-            "name": "任务",
-            "command": "命令",
-            "cwd": "工作目录",
+            "name": "Task",
+            "command": "Command",
+            "cwd": "Working directory",
             "feature": "Feature",
-            "description": "描述",
+            "description": "Description",
         }
         widths = {
             "name": 200,
@@ -111,20 +111,20 @@ class TasksTab(ttk.Frame):
         self.tree.bind("<Double-1>", lambda _event: self._launch(terminal=False))
         self.tree.bind("<Button-3>", self._context_menu)
 
-        detail = ttk.LabelFrame(self, text="任务详情", padding=(9, 7))
+        detail = ttk.LabelFrame(self, text="Task Details", padding=(9, 7))
         detail.pack(side="bottom", fill="x", pady=(9, 0), before=table_frame)
         self.detail_vars = {
             key: tk.StringVar(value="—")
             for key in ("name", "cmd", "cwd", "feature", "depends", "args", "description")
         }
         labels = [
-            ("name", "名称", 0, 0),
+            ("name", "Name", 0, 0),
             ("feature", "Feature", 0, 2),
-            ("cmd", "命令", 1, 0),
-            ("cwd", "工作目录", 2, 0),
-            ("depends", "依赖", 3, 0),
-            ("args", "参数定义", 4, 0),
-            ("description", "描述", 5, 0),
+            ("cmd", "Command", 1, 0),
+            ("cwd", "Working directory", 2, 0),
+            ("depends", "Dependencies", 3, 0),
+            ("args", "Argument schema", 4, 0),
+            ("description", "Description", 5, 0),
         ]
         for key, label, row, column in labels:
             ttk.Label(detail, text=label, style="MutedCard.TLabel", width=8).grid(
@@ -163,7 +163,7 @@ class TasksTab(ttk.Frame):
         self.env_name = env_name
         if base_mode:
             self.base_hint_var.set(
-                "基础依赖视图：任务仍使用 {} 环境运行".format(env_name)
+                "Base-dependency view: tasks still run in {}".format(env_name)
             )
             self.base_hint.pack(fill="x", pady=(6, 0), before=self.toolbar)
         else:
@@ -175,7 +175,7 @@ class TasksTab(ttk.Frame):
                 "{} / {}".format(workspace.name or workspace.root.name, env_name)
             )
         else:
-            self.headline_var.set("未打开环境")
+            self.headline_var.set("No environment")
         self.refresh_view()
 
     def refresh_view(self) -> None:
@@ -183,7 +183,7 @@ class TasksTab(ttk.Frame):
         self.tree.delete(*self.tree.get_children())
         self.visible.clear()
         if not self.workspace:
-            self.status_var.set("未打开环境")
+            self.status_var.set("No environment")
             self._clear_details()
             return
         query = self.search_var.get().strip().lower()
@@ -222,9 +222,9 @@ class TasksTab(ttk.Frame):
                 self.tree.selection_set(iid)
                 self.tree.see(iid)
         if filtered:
-            self.status_var.set("{} 个 task（当前环境 {}）".format(len(filtered), self.env_name))
+            self.status_var.set("{} task(s) (environment {})".format(len(filtered), self.env_name))
         else:
-            self.status_var.set("当前环境没有可显示的 task")
+            self.status_var.set("No tasks to display in this environment.")
         if not self.tree.selection() and self.tree.get_children():
             first = self.tree.get_children()[0]
             self.tree.selection_set(first)
@@ -257,7 +257,7 @@ class TasksTab(ttk.Frame):
         self.detail_vars["cwd"].set(task.cwd or "—")
         self.detail_vars["depends"].set(", ".join(task.depends_on) or "—")
         self.detail_vars["args"].set(
-            "有（启动时可填写参数）" if task.args else "无"
+            "Available (enter at launch)" if task.args else "None"
         )
         self.detail_vars["description"].set(task.description or "—")
 
@@ -268,14 +268,14 @@ class TasksTab(ttk.Frame):
     def _launch(self, terminal: bool) -> None:
         task = self._selected_task()
         if task is None:
-            messagebox.showinfo("运行任务", "请先选择一个 task。", parent=self)
+            messagebox.showinfo("Run Task", "Select a task first.", parent=self)
             return
         self.app.run_task(task, terminal=terminal)
 
     def _launch_with_args(self) -> None:
         task = self._selected_task()
         if task is None:
-            messagebox.showinfo("运行任务", "请先选择一个 task。", parent=self)
+            messagebox.showinfo("Run Task", "Select a task first.", parent=self)
             return
         self.app.run_task_with_args(task)
 
@@ -287,11 +287,11 @@ class TasksTab(ttk.Frame):
         self._update_details()
         menu = tk.Menu(self, tearoff=0)
         self.app.theme.style_menu(menu)
-        menu.add_command(label="启动", command=lambda: self._launch(False))
-        menu.add_command(label="带参数启动…", command=self._launch_with_args)
-        menu.add_command(label="在终端中运行", command=lambda: self._launch(True))
+        menu.add_command(label="Start", command=lambda: self._launch(False))
+        menu.add_command(label="Run with Arguments…", command=self._launch_with_args)
+        menu.add_command(label="Run in Terminal", command=lambda: self._launch(True))
         menu.add_separator()
-        menu.add_command(label="复制命令", command=self._copy_command)
+        menu.add_command(label="Copy Command", command=self._copy_command)
         i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)

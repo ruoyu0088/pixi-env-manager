@@ -25,8 +25,8 @@ class QuickSidebar(ttk.Frame):
         self.paned = ttk.Panedwindow(self, orient="vertical")
         self.paned.pack(fill="both", expand=True)
 
-        self.task_section = self._make_section("快速任务")
-        self.python_section = self._make_section("Python 程序")
+        self.task_section = self._make_section("Quick Tasks")
+        self.python_section = self._make_section("Python Programs")
         self.paned.add(self.task_section["frame"], weight=1)
         self.paned.add(self.python_section["frame"], weight=1)
 
@@ -57,7 +57,7 @@ class QuickSidebar(ttk.Frame):
         count_label.pack(side="left", padx=(7, 0))
         ttk.Label(
             header,
-            text="当前环境",
+            text="Current environment",
             style="SmallCard.TLabel",
         ).pack(side="right")
         scroll = ScrollableFrame(outer, style="Sidebar.TFrame")
@@ -94,10 +94,10 @@ class QuickSidebar(ttk.Frame):
         )
         self.task_section["count"].configure(text=str(len(tasks)))
         if not self.workspace:
-            self._empty(inner, "打开一个环境后显示可用 task")
+            self._empty(inner, "Open an environment to see tasks")
             return
         if not tasks:
-            self._empty(inner, "当前环境没有 task")
+            self._empty(inner, "No tasks in this environment")
             return
         for task in tasks:
             self._make_task_row(inner, task)
@@ -121,8 +121,8 @@ class QuickSidebar(ttk.Frame):
             command=lambda t=task: self.app.run_task(t, terminal=True),
         )
         terminal.pack(side="left", padx=(0, 6), anchor="n")
-        Tooltip(play, i18n.t("运行"))
-        Tooltip(terminal, i18n.t("在终端中运行"))
+        Tooltip(play, i18n.t("Run"))
+        Tooltip(terminal, i18n.t("Run in Terminal"))
         text_frame = ttk.Frame(row, style="Row.TFrame")
         text_frame.pack(side="left", fill="x", expand=True)
         name = ttk.Label(
@@ -134,7 +134,7 @@ class QuickSidebar(ttk.Frame):
         name.pack(fill="x")
         command = ttk.Label(
             text_frame,
-            text=truncate_text(task.command_summary, 38) or "（无命令）",
+            text=truncate_text(task.command_summary, 38) or "(no command)",
             style="RowMuted.TLabel",
             anchor="w",
         )
@@ -152,9 +152,9 @@ class QuickSidebar(ttk.Frame):
             for item in (
                 task.name,
                 task.cmd,
-                i18n.t("目录: ") + task.cwd if task.cwd else "",
-                i18n.t("所属: ") + task.feature if task.feature else "",
-                i18n.t("依赖: ") + ", ".join(task.depends_on)
+                i18n.t("Directory: ") + task.cwd if task.cwd else "",
+                i18n.t("Feature: ") + task.feature if task.feature else "",
+                i18n.t("Depends on: ") + ", ".join(task.depends_on)
                 if task.depends_on
                 else "",
             )
@@ -189,17 +189,17 @@ class QuickSidebar(ttk.Frame):
     def _task_menu(self, event, task: TaskInfo) -> None:
         menu = tk.Menu(self, tearoff=0)
         self.app.theme.style_menu(menu)
-        menu.add_command(label="启动", command=lambda: self.app.run_task(task))
+        menu.add_command(label="Start", command=lambda: self.app.run_task(task))
         menu.add_command(
-            label="带参数启动…",
+            label="Run with Arguments…",
             command=lambda: self.app.run_task_with_args(task),
         )
         menu.add_command(
-            label="在终端中运行",
+            label="Run in Terminal",
             command=lambda: self.app.run_task(task, terminal=True),
         )
         menu.add_separator()
-        menu.add_command(label="查看详情", command=lambda: self.app.show_task(task))
+        menu.add_command(label="View Details", command=lambda: self.app.show_task(task))
         i18n.localize_menu(menu)
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -214,10 +214,10 @@ class QuickSidebar(ttk.Frame):
             runs = self.workspace.python_programs(self.env_name, self.app.state)
         self.python_section["count"].configure(text=str(len(runs)))
         if not self.workspace:
-            self._empty(inner, "打开一个环境后显示运行历史")
+            self._empty(inner, "Open an environment to see run history")
             return
         if not runs:
-            self._empty(inner, "还没有用此环境运行过 Python 程序")
+            self._empty(inner, "No Python program has been run in this environment yet")
             return
         for run in runs:
             self._make_python_row(inner, run)
@@ -244,20 +244,20 @@ class QuickSidebar(ttk.Frame):
             command=lambda r=run: self.app.run_python_run(r, terminal=True),
         )
         terminal.pack(side="left", padx=(0, 6), anchor="n")
-        Tooltip(play, i18n.t("运行"))
-        Tooltip(terminal, i18n.t("在终端中运行"))
+        Tooltip(play, i18n.t("Run"))
+        Tooltip(terminal, i18n.t("Run in Terminal"))
         text_frame = ttk.Frame(row, style="Row.TFrame")
         text_frame.pack(side="left", fill="x", expand=True)
         name = ttk.Label(
             text_frame,
-            text=truncate_text(Path(script).name, 34) if script else "（无脚本）",
+            text=truncate_text(Path(script).name, 34) if script else "(no script)",
             style="RowTitle.TLabel",
             anchor="w",
         )
         name.pack(fill="x")
         args_label = ttk.Label(
             text_frame,
-            text=truncate_text(args, 42) if args else "（无参数）",
+            text=truncate_text(args, 42) if args else "(no arguments)",
             style="RowMuted.TLabel" if exists else "RowDanger.TLabel",
             anchor="w",
         )
@@ -273,12 +273,12 @@ class QuickSidebar(ttk.Frame):
             item
             for item in (
                 script,
-                i18n.t("参数: ") + args
+                i18n.t("Arguments: ") + args
                 if args
-                else i18n.t("参数: （无）"),
-                i18n.t("工作目录: ") + str(run.get("cwd") or ""),
-                i18n.t("上次运行: ") + str(run.get("last_run") or ""),
-                "" if exists else i18n.t("⚠ 脚本文件不存在"),
+                else i18n.t("Arguments: (none)"),
+                i18n.t("Working directory: ") + str(run.get("cwd") or ""),
+                i18n.t("Last run: ") + str(run.get("last_run") or ""),
+                "" if exists else i18n.t("⚠ Script file not found"),
             )
             if item
         )
@@ -311,20 +311,20 @@ class QuickSidebar(ttk.Frame):
         menu = tk.Menu(self, tearoff=0)
         self.app.theme.style_menu(menu)
         menu.add_command(
-            label="运行（使用保存的参数）",
+            label="Run (saved arguments)",
             command=lambda: self.app.run_python_run(run),
         )
         menu.add_command(
-            label="编辑参数…",
+            label="Edit Arguments…",
             command=lambda: self.app.load_python_run(run),
         )
         menu.add_command(
-            label="在终端中运行",
+            label="Run in Terminal",
             command=lambda: self.app.run_python_run(run, terminal=True),
         )
         menu.add_separator()
         menu.add_command(
-            label="从历史中移除",
+            label="Remove from History",
             command=lambda: self.app.remove_python_run(run),
         )
         i18n.localize_menu(menu)

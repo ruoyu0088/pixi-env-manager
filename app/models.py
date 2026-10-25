@@ -88,33 +88,33 @@ class Package:
     @property
     def scope_text(self) -> str:
         if self.scope == "base":
-            return t("基础")
+            return t("Base")
         if self.scope.startswith("feature:"):
-            return t("feature:{}").format(self.scope.split(":", 1)[1])
+            return t("feature: {}").format(self.scope.split(":", 1)[1])
         if self.scope.startswith("env:"):
-            return t("环境:{}").format(self.scope.split(":", 1)[1])
+            return t("Environment: {}").format(self.scope.split(":", 1)[1])
         if self.scope == "transitive":
-            return t("传递")
+            return t("Transitive")
         return self.scope or "—"
 
     @property
     def status_text(self) -> str:
         if not self.installed:
-            return t("未安装")
+            return t("Not installed")
         if self.checking_latest:
-            return t("查询中…")
+            return t("Checking…")
         if self.latest_error:
-            return t("查询失败")
+            return t("Check failed")
         if self.latest:
             comparison = self.compare_latest()
             if comparison > 0:
-                return t("有更新")
+                return t("Update available")
             if comparison == 0:
-                return t("已是最新")
-            return t("已安装更高")
+                return t("Up to date")
+            return t("Installed is newer")
         if self.compatible_to:
-            return t("可兼容更新")
-        return t("未检查")
+            return t("Compatible update available")
+        return t("Not checked")
 
     @property
     def status_level(self) -> str:

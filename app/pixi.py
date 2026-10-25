@@ -42,9 +42,9 @@ class PixiError(RuntimeError):
     def details(self) -> str:
         parts: List[str] = []
         if self.command:
-            parts.append("命令: " + subprocess.list2cmdline(self.command))
+            parts.append("Command: " + subprocess.list2cmdline(self.command))
         if self.returncode is not None:
-            parts.append("退出码: {}".format(self.returncode))
+            parts.append("Exit code: {}".format(self.returncode))
         if self.stderr.strip():
             parts.append("stderr:\n" + self.stderr.strip())
         if self.stdout.strip():
@@ -93,7 +93,7 @@ def _child_env() -> Dict[str, str]:
 def _extract_json(text: str) -> Any:
     text = (text or "").lstrip("\ufeff").strip()
     if not text:
-        raise ValueError("命令没有返回 JSON 输出")
+        raise ValueError("Command returned no JSON output")
     try:
         return json.loads(text)
     except ValueError:
@@ -107,7 +107,7 @@ def _extract_json(text: str) -> Any:
             return value
         except ValueError:
             continue
-    raise ValueError("无法从输出中解析 JSON")
+    raise ValueError("Could not parse JSON from output")
 
 
 def _version_from_change(name: str, record: Any) -> str:
@@ -187,7 +187,7 @@ class PixiClient:
     def require(self) -> str:
         if not self.available:
             raise PixiError(
-                "找不到 pixi 可执行文件。请在“设置”中指定 pixi.exe，或把 Pixi 加入 PATH。"
+                "Pixi executable not found. Set pixi.exe in Settings or add Pixi to PATH."
             )
         return str(self.executable)
 
@@ -217,7 +217,7 @@ class PixiClient:
                 creationflags=_CREATE_FLAGS,
             )
         except FileNotFoundError as exc:
-            raise PixiError("无法启动 pixi：{}".format(exc), command=command) from exc
+            raise PixiError("Could not start pixi: {}".format(exc), command=command) from exc
         except subprocess.TimeoutExpired as exc:
             stdout = exc.stdout or ""
             stderr = exc.stderr or ""
@@ -226,13 +226,13 @@ class PixiClient:
             if isinstance(stderr, bytes):
                 stderr = stderr.decode("utf-8", "replace")
             raise PixiError(
-                "pixi 命令超时（{} 秒）".format(timeout),
+                "pixi command timed out after {} seconds".format(timeout),
                 command=command,
                 stdout=stdout,
                 stderr=stderr,
             ) from exc
         except OSError as exc:
-            raise PixiError("无法运行 pixi：{}".format(exc), command=command) from exc
+            raise PixiError("Could not run pixi: {}".format(exc), command=command) from exc
 
     def capture(
         self,
@@ -243,7 +243,7 @@ class PixiClient:
     ) -> str:
         result = self._run(args, cwd=cwd, timeout=timeout)
         if check and result.returncode != 0:
-            message = (result.stderr or result.stdout or "pixi 命令失败").strip()
+            message = (result.stderr or result.stdout or "pixi command failed").strip()
             raise PixiError(
                 message,
                 command=[self.executable or "pixi"] + list(args),
@@ -264,7 +264,7 @@ class PixiClient:
             return _extract_json(output)
         except ValueError as exc:
             raise PixiError(
-                "pixi 返回了无法解析的 JSON：{}".format(exc),
+                "pixi returned invalid JSON: {}".format(exc),
                 command=[self.executable or "pixi"] + list(args),
                 stdout=output,
             ) from exc
@@ -284,7 +284,7 @@ class PixiClient:
             ["info", "--manifest-path", str(manifest), "--json"], timeout=90
         )
         if not isinstance(data, dict):
-            raise PixiError("pixi info 返回的数据格式不正确。")
+            raise PixiError("pixi info returned an unexpected data format.")
         return data
 
     def task_list(self, manifest: Path) -> Any:
@@ -462,14 +462,14 @@ class PixiClient:
         data = self.capture_json(args, timeout=180)
         latest = latest_conda_version(data, package.name, platform)
         if not latest:
-            raise PixiError("在配置的频道中找不到包“{}”。".format(package.name))
+            raise PixiError("Package “{}” was not found in the configured channels.".format(package.name))
         return latest
 
     def latest_pypi(self, package: Package) -> str:
         source = (package.source or "").lower()
         if source and "pypi.org" not in source and "pythonhosted.org" not in source:
             raise PixiError(
-                "该包来自自定义 PyPI 源，无法通过 pypi.org 公共 API 检查最新版本。"
+                "This package comes from a custom PyPI source; its latest version cannot be checked via the public pypi.org API."
             )
         normalized = re.sub(r"[-_.]+", "-", package.name).lower()
         url = "https://pypi.org/pypi/{}/json".format(
@@ -487,13 +487,13 @@ class PixiClient:
                 payload = json.loads(response.read().decode("utf-8", "replace"))
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
-                raise PixiError("PyPI 上找不到包“{}”。".format(package.name)) from exc
-            raise PixiError("PyPI 查询失败（HTTP {}）。".format(exc.code)) from exc
+                raise PixiError("Package “{}” was not found on PyPI.".format(package.name)) from exc
+            raise PixiError("PyPI query failed (HTTP {}).".format(exc.code)) from exc
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
-            raise PixiError("PyPI 查询失败：{}".format(exc)) from exc
+            raise PixiError("PyPI query failed: {}".format(exc)) from exc
         version = ((payload or {}).get("info") or {}).get("version")
         if not version:
-            raise PixiError("PyPI 返回的数据中没有版本号。")
+            raise PixiError("PyPI returned no version number.")
         return str(version)
 
     def latest_for(self, package: Package, platform: str, manifest: Path) -> str:

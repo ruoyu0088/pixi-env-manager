@@ -68,10 +68,10 @@ class DetailsDialog(tk.Toplevel):
 
         footer = ttk.Frame(self, padding=(14, 0, 14, 12))
         footer.pack(fill="x")
-        ttk.Button(footer, text="复制详情", command=self._copy).pack(
+        ttk.Button(footer, text="Copy Details", command=self._copy).pack(
             side="left"
         )
-        ttk.Button(footer, text="关闭", style="Accent.TButton", command=self.destroy).pack(
+        ttk.Button(footer, text="Close", style="Accent.TButton", command=self.destroy).pack(
             side="right"
         )
         self.bind("<Escape>", lambda _event: self.destroy())
@@ -120,7 +120,7 @@ def show_info(parent, title: str, message: str) -> None:
 class OpenEnvironmentDialog(tk.Toplevel):
     def __init__(self, parent, initial_dir: str = ""):
         super().__init__(parent)
-        self.title("打开 Pixi 环境")
+        self.title("Open Pixi Environment")
         self.transient(parent)
         self.resizable(True, False)
         self.result: Optional[str] = None
@@ -131,41 +131,41 @@ class OpenEnvironmentDialog(tk.Toplevel):
         frame.pack(fill="both", expand=True)
         ttk.Label(
             frame,
-            text="选择工作区",
+            text="Open Workspace",
             style="CardTitle.TLabel",
         ).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 4))
         ttk.Label(
             frame,
-            text="可以选 pixi.toml / pyproject.toml，也可以选工作区目录。",
+            text="Choose pixi.toml / pyproject.toml or a workspace directory.",
             style="MutedCard.TLabel",
         ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(0, 10))
 
         self.path_var = tk.StringVar()
         entry = ttk.Entry(frame, textvariable=self.path_var, width=64)
         entry.grid(row=2, column=0, columnspan=2, sticky="ew", pady=2)
-        ttk.Button(frame, text="选择清单文件…", command=self._browse_file).grid(
+        ttk.Button(frame, text="Choose Manifest…", command=self._browse_file).grid(
             row=2, column=2, padx=(8, 0), sticky="ew"
         )
-        ttk.Button(frame, text="选择目录…", command=self._browse_folder).grid(
+        ttk.Button(frame, text="Choose Folder…", command=self._browse_folder).grid(
             row=2, column=3, padx=(8, 0), sticky="ew"
         )
 
         ttk.Label(
             frame,
-            text="最近使用的工作区也可以在顶部“最近打开”菜单中快速切换。",
+            text="Recently used workspaces can also be switched from the “Recent” menu at the top.",
             style="MutedCard.TLabel",
         ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
         buttons = ttk.Frame(frame)
         buttons.grid(row=4, column=0, columnspan=4, sticky="ew", pady=(16, 0))
         ttk.Button(
-            buttons, text="新建工作区…", command=self._new_workspace
+            buttons, text="New Workspace…", command=self._new_workspace
         ).pack(side="left")
-        ttk.Button(buttons, text="取消", command=self.destroy).pack(
+        ttk.Button(buttons, text="Cancel", command=self.destroy).pack(
             side="right", padx=(8, 0)
         )
         ttk.Button(
-            buttons, text="打开", style="Accent.TButton", command=self._accept
+            buttons, text="Open", style="Accent.TButton", command=self._accept
         ).pack(side="right")
 
         frame.columnconfigure(0, weight=1)
@@ -197,12 +197,12 @@ class OpenEnvironmentDialog(tk.Toplevel):
     def _browse_file(self) -> None:
         path = filedialog.askopenfilename(
             parent=self,
-            title="选择 Pixi 清单文件",
+            title="Choose Pixi manifest file",
             initialdir=self.initial_dir,
             filetypes=[
-                ("Pixi 清单", "*.toml"),
-                ("TOML 文件", "*.toml"),
-                ("所有文件", "*.*"),
+                ("Pixi manifest", "*.toml"),
+                ("TOML file", "*.toml"),
+                ("All files", "*.*"),
             ],
         )
         if path:
@@ -210,7 +210,7 @@ class OpenEnvironmentDialog(tk.Toplevel):
 
     def _browse_folder(self) -> None:
         path = filedialog.askdirectory(
-            parent=self, title="选择工作区目录", initialdir=self.initial_dir
+            parent=self, title="Choose workspace directory", initialdir=self.initial_dir
         )
         if path:
             self.path_var.set(path)
@@ -227,12 +227,12 @@ class OpenEnvironmentDialog(tk.Toplevel):
     def _accept(self) -> None:
         raw = self.path_var.get().strip().strip('"')
         if not raw:
-            messagebox.showwarning("路径为空", "请选择或输入工作区路径。", parent=self)
+            messagebox.showwarning("Empty path", "Choose or enter a workspace path.", parent=self)
             return
         path = Path(raw).expanduser()
         if path.exists() and not path.is_dir():
             messagebox.showerror(
-                "路径无效", "目标路径不是目录。", parent=self
+                "Invalid path", "The target path is not a directory.", parent=self
             )
             return
         manifest = manifest_for_path(path)
@@ -242,9 +242,8 @@ class OpenEnvironmentDialog(tk.Toplevel):
             return
         if path.exists():
             if not messagebox.askyesno(
-                "没有 Pixi 清单",
-                "该目录下没有 pixi.toml 或 pyproject.toml。\n\n"
-                "是否创建新的 Pixi 工作区？",
+                "No Pixi manifest",
+                "This directory has no pixi.toml or pyproject.toml.\n\nCreate a new Pixi workspace?",
                 parent=self,
             ):
                 return
@@ -252,8 +251,8 @@ class OpenEnvironmentDialog(tk.Toplevel):
             self.destroy()
             return
         if not messagebox.askyesno(
-            "目录不存在",
-            "目录不存在：\n{}\n\n是否创建该目录并初始化 Pixi 工作区？".format(path),
+            "Directory does not exist",
+            "The directory does not exist:\n{}\n\nCreate it and initialize a Pixi workspace?".format(path),
             parent=self,
         ):
             return
@@ -269,7 +268,7 @@ class NewWorkspaceDialog(tk.Toplevel):
         default_platform: str = "win-64",
     ):
         super().__init__(parent)
-        self.title("新建 Pixi 工作区")
+        self.title("New Pixi Workspace")
         self.transient(parent)
         self.resizable(True, False)
         self.result: Optional[Dict[str, object]] = None
@@ -279,27 +278,27 @@ class NewWorkspaceDialog(tk.Toplevel):
 
         frame = ttk.Frame(self, padding=16)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="新建 Pixi 工作区", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="New Pixi Workspace", style="CardTitle.TLabel").grid(
             row=0, column=0, columnspan=3, sticky="w"
         )
         ttk.Label(
             frame,
-            text="只会创建 pixi.toml；不安装依赖，创建后进入基础依赖视图。",
+            text="Creates only pixi.toml; dependencies are not installed. The workspace opens in the Base dependencies view.",
             style="MutedCard.TLabel",
             wraplength=680,
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(3, 12))
 
-        ttk.Label(frame, text="目录", style="Muted.TLabel").grid(
+        ttk.Label(frame, text="Directory", style="Muted.TLabel").grid(
             row=2, column=0, sticky="w", pady=4
         )
         self.path_var = tk.StringVar(value=initial_path)
         self.path_entry = ttk.Entry(frame, textvariable=self.path_var, width=66)
         self.path_entry.grid(row=2, column=1, sticky="ew", pady=4)
-        ttk.Button(frame, text="选择目录…", command=self._browse).grid(
+        ttk.Button(frame, text="Choose Folder…", command=self._browse).grid(
             row=2, column=2, padx=(8, 0), pady=4
         )
         self.name_var = tk.StringVar(value="")
-        ttk.Label(frame, text="工作区名称", style="Muted.TLabel").grid(
+        ttk.Label(frame, text="Workspace name", style="Muted.TLabel").grid(
             row=3, column=0, sticky="w", pady=4
         )
         ttk.Label(
@@ -318,7 +317,7 @@ class NewWorkspaceDialog(tk.Toplevel):
             row=4, column=0, columnspan=3, sticky="w", pady=(0, 8)
         )
 
-        ttk.Label(frame, text="频道", style="Muted.TLabel").grid(
+        ttk.Label(frame, text="Channel", style="Muted.TLabel").grid(
             row=5, column=0, sticky="w", pady=4
         )
         self.channels_var = tk.StringVar(value="conda-forge")
@@ -327,11 +326,11 @@ class NewWorkspaceDialog(tk.Toplevel):
         )
         ttk.Label(
             frame,
-            text="多个频道用逗号分隔，例如 conda-forge,bioconda。",
+            text="Separate multiple channels with commas, e.g. conda-forge,bioconda.",
             style="MutedCard.TLabel",
         ).grid(row=6, column=1, columnspan=2, sticky="w")
 
-        ttk.Label(frame, text="平台", style="Muted.TLabel").grid(
+        ttk.Label(frame, text="Platform", style="Muted.TLabel").grid(
             row=7, column=0, sticky="nw", pady=(10, 4)
         )
         platform_frame = ttk.Frame(frame)
@@ -349,23 +348,23 @@ class NewWorkspaceDialog(tk.Toplevel):
             ).grid(row=0, column=index, sticky="w", padx=(0, 14))
         ttk.Label(
             frame,
-            text="至少选择一个平台；默认使用当前系统平台。",
+            text="Select at least one platform; the current platform is selected by default.",
             style="MutedCard.TLabel",
         ).grid(row=8, column=1, columnspan=2, sticky="w")
 
         ttk.Label(
             frame,
-            text="Pixi 会同时创建 .gitignore 和 .gitattributes；工作区名称由目录名决定。",
+            text="Pixi also creates .gitignore and .gitattributes; the workspace name comes from the directory name.",
             style="MutedCard.TLabel",
             wraplength=680,
         ).grid(row=9, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
         buttons = ttk.Frame(frame)
         buttons.grid(row=10, column=0, columnspan=3, sticky="e", pady=(16, 0))
-        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right")
         ttk.Button(
             buttons,
-            text="创建",
+            text="Create",
             style="Accent.TButton",
             command=self._accept,
         ).pack(side="right", padx=(0, 8))
@@ -405,7 +404,7 @@ class NewWorkspaceDialog(tk.Toplevel):
                 initial = str(Path.home())
         path = filedialog.askdirectory(
             parent=self,
-            title=i18n.t("选择工作区目录"),
+            title=i18n.t("Choose workspace directory"),
             initialdir=initial or str(Path.home()),
             mustexist=False,
         )
@@ -416,17 +415,17 @@ class NewWorkspaceDialog(tk.Toplevel):
         raw = self.path_var.get().strip().strip('"')
         if not raw:
             self.name_var.set("—")
-            self.preview_var.set("请选择一个目录。")
+            self.preview_var.set("Choose a directory.")
             return
         path = Path(raw).expanduser()
         self.name_var.set(path.name or "—")
         if path.exists() and not path.is_dir():
-            self.preview_var.set("目标路径已存在且不是目录。")
+            self.preview_var.set("The target path exists and is not a directory.")
         elif path.exists() and manifest_for_path(path) is not None:
-            self.preview_var.set("目录中已有 Pixi 清单，请直接打开。")
+            self.preview_var.set("This directory already has a Pixi manifest; open it directly.")
         elif path.exists() and (path / "pyproject.toml").is_file():
             self.preview_var.set(
-                "目录中已有 pyproject.toml；新建向导只创建 pixi.toml。"
+                "This directory already has pyproject.toml; the new-workspace wizard only creates pixi.toml."
             )
         elif path.exists():
             try:
@@ -434,43 +433,42 @@ class NewWorkspaceDialog(tk.Toplevel):
             except OSError:
                 nonempty = False
             self.preview_var.set(
-                "目录非空，创建时会追加 pixi.toml、.gitignore、.gitattributes。"
+                "The directory is not empty; pixi.toml, .gitignore and .gitattributes will be added."
                 if nonempty
-                else "目录为空，将创建 pixi.toml。"
+                else "The directory is empty; pixi.toml will be created."
             )
         else:
-            self.preview_var.set("目录不存在，创建时会自动建立。")
+            self.preview_var.set("The directory does not exist and will be created.")
         i18n.localize_widget_tree(self)
 
     def _accept(self) -> None:
         raw = self.path_var.get().strip().strip('"')
         if not raw:
-            messagebox.showwarning("路径为空", "请选择或输入工作区目录。", parent=self)
+            messagebox.showwarning("Empty path", "Choose or enter a workspace directory.", parent=self)
             return
         path = Path(raw).expanduser()
         if not path.is_absolute():
             path = (Path.cwd() / path).resolve()
         if path.exists() and not path.is_dir():
-            messagebox.showerror("路径无效", "目标路径已存在且不是目录。", parent=self)
+            messagebox.showerror("Invalid path", "The target path exists and is not a directory.", parent=self)
             return
         if path.exists() and manifest_for_path(path) is not None:
             messagebox.showinfo(
-                "已有 Pixi 清单",
-                "该目录已有 Pixi 清单，请直接打开。",
+                "Pixi manifest already exists",
+                "This directory already has a Pixi manifest; open it directly.",
                 parent=self,
             )
             return
         if path.exists() and (path / "pyproject.toml").is_file():
             messagebox.showerror(
-                "已有 pyproject.toml",
-                "新建向导只创建 pixi.toml。该目录已有 pyproject.toml，"
-                "请换一个目录或直接打开现有清单。",
+                "pyproject.toml already exists",
+                "The new-workspace wizard only creates pixi.toml. This directory already has pyproject.toml; choose another directory or open the existing manifest.",
                 parent=self,
             )
             return
         name = path.name
         if not name:
-            messagebox.showwarning("目录无效", "不能直接在磁盘根目录创建工作区。", parent=self)
+            messagebox.showwarning("Invalid directory", "A workspace cannot be created directly in a disk root.", parent=self)
             return
         channels = [
             item.strip()
@@ -478,11 +476,11 @@ class NewWorkspaceDialog(tk.Toplevel):
             if item.strip()
         ]
         if not channels:
-            messagebox.showwarning("频道为空", "至少填写一个频道。", parent=self)
+            messagebox.showwarning("No channels", "Enter at least one channel.", parent=self)
             return
         platforms = [name for name, var in self.platform_vars.items() if var.get()]
         if not platforms:
-            messagebox.showwarning("平台为空", "至少选择一个平台。", parent=self)
+            messagebox.showwarning("No platforms", "Select at least one platform.", parent=self)
             return
         if path.exists():
             try:
@@ -490,9 +488,8 @@ class NewWorkspaceDialog(tk.Toplevel):
             except OSError:
                 nonempty = False
             if nonempty and not messagebox.askyesno(
-                "目录非空",
-                "目录中已有文件。Pixi 会追加 .gitignore、.gitattributes 和 "
-                "pixi.toml，但不会删除已有文件。\n\n继续创建吗？",
+                "Directory is not empty",
+                "The directory already contains files. Pixi will add .gitignore, .gitattributes and pixi.toml without deleting existing files.\n\nContinue?",
                 parent=self,
             ):
                 return
@@ -508,17 +505,17 @@ class NewWorkspaceDialog(tk.Toplevel):
 class TaskArgsDialog(tk.Toplevel):
     def __init__(self, parent, task_name: str, initial: str = ""):
         super().__init__(parent)
-        self.title("运行任务：{}".format(task_name))
+        self.title("Run task: {}".format(task_name))
         self.transient(parent)
         self.resizable(True, False)
         self.result: Optional[str] = None
 
         frame = ttk.Frame(self, padding=16)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="附加参数", style="CardTitle.TLabel").pack(anchor="w")
+        ttk.Label(frame, text="Extra arguments", style="CardTitle.TLabel").pack(anchor="w")
         ttk.Label(
             frame,
-            text="参数会追加到 pixi run 命令末尾；包含空格的路径请加双引号。",
+            text="Arguments are appended to pixi run; wrap paths containing spaces in double quotes.",
             style="MutedCard.TLabel",
             wraplength=560,
         ).pack(anchor="w", pady=(3, 8))
@@ -528,9 +525,9 @@ class TaskArgsDialog(tk.Toplevel):
         self.entry.bind("<Return>", lambda _event: self._accept())
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", pady=(14, 0))
-        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right")
         ttk.Button(
-            buttons, text="运行", style="Accent.TButton", command=self._accept
+            buttons, text="Run", style="Accent.TButton", command=self._accept
         ).pack(side="right", padx=(0, 8))
         self.grab_set()
         self.update_idletasks()
@@ -562,7 +559,7 @@ class AddEnvironmentDialog(tk.Toplevel):
         default_install: bool = True,
     ):
         super().__init__(parent)
-        self.title(i18n.t("添加环境"))
+        self.title(i18n.t("Add Environment"))
         self.transient(parent)
         self.resizable(True, False)
         self.result: Optional[Dict[str, object]] = None
@@ -571,7 +568,7 @@ class AddEnvironmentDialog(tk.Toplevel):
 
         frame = ttk.Frame(self, padding=16)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="环境名称", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Environment name", style="CardTitle.TLabel").grid(
             row=0, column=0, sticky="w"
         )
         self.name_var = tk.StringVar()
@@ -581,7 +578,7 @@ class AddEnvironmentDialog(tk.Toplevel):
         )
         ttk.Label(
             frame,
-            text="名称不能重复，default 是隐式环境，不能作为新名称。",
+            text="Names must be unique; default is implicit and cannot be used.",
             style="MutedCard.TLabel",
         ).grid(row=2, column=0, columnspan=2, sticky="w")
 
@@ -591,7 +588,7 @@ class AddEnvironmentDialog(tk.Toplevel):
         self.default_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             frame,
-            text="包含 default feature",
+            text="Include default feature",
             variable=self.default_var,
         ).grid(row=4, column=0, columnspan=2, sticky="w")
 
@@ -608,17 +605,17 @@ class AddEnvironmentDialog(tk.Toplevel):
         else:
             ttk.Label(
                 feature_frame,
-                text="工作区没有其他 feature。",
+                text="This workspace has no other features.",
                 style="MutedCard.TLabel",
             ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             frame,
-            text="取消 default feature 时，必须至少选择一个其他 feature。",
+            text="When default is disabled, at least one other feature must be selected.",
             style="MutedCard.TLabel",
             wraplength=620,
         ).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
-        ttk.Label(frame, text="Solve group（可选）", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Solve group (optional)", style="CardTitle.TLabel").grid(
             row=7, column=0, sticky="w", pady=(14, 4)
         )
         self.solve_group_var = tk.StringVar()
@@ -629,16 +626,16 @@ class AddEnvironmentDialog(tk.Toplevel):
         self.install_var = tk.BooleanVar(value=default_install)
         ttk.Checkbutton(
             frame,
-            text="创建后立即安装环境",
+            text="Install the environment after creation",
             variable=self.install_var,
         ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(14, 0))
 
         buttons = ttk.Frame(frame)
         buttons.grid(row=10, column=0, columnspan=2, sticky="e", pady=(18, 0))
-        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right")
         ttk.Button(
             buttons,
-            text="添加环境",
+            text="Add Environment",
             style="Accent.TButton",
             command=self._accept,
         ).pack(side="right", padx=(0, 8))
@@ -668,22 +665,22 @@ class AddEnvironmentDialog(tk.Toplevel):
     def _accept(self) -> None:
         name = self.name_var.get().strip()
         if not name:
-            messagebox.showwarning("环境名称", "请输入环境名称。", parent=self)
+            messagebox.showwarning("Environment name", "Enter an environment name.", parent=self)
             return
         if name == "default":
             messagebox.showwarning(
-                "环境名称", "default 是隐式环境，不能作为新环境名称。", parent=self
+                "Environment name", "default is implicit and cannot be used as a new environment name.", parent=self
             )
             return
         if name in self.existing_names:
             messagebox.showwarning(
-                "环境已存在", "环境“{}”已经存在。".format(name), parent=self
+                "Environment already exists", "Environment “{}” already exists.".format(name), parent=self
             )
             return
         if re.search(r"\s", name) or '"' in name or "'" in name:
             messagebox.showwarning(
-                "环境名称",
-                "环境名称不能包含空格、单引号或双引号。",
+                "Environment name",
+                "The environment name cannot contain spaces, single quotes or double quotes.",
                 parent=self,
             )
             return
@@ -693,7 +690,7 @@ class AddEnvironmentDialog(tk.Toplevel):
         if not self.default_var.get() and not selected:
             messagebox.showwarning(
                 "Features",
-                "取消 default feature 后，必须至少选择一个其他 feature。",
+                "When default is disabled, at least one other feature must be selected.",
                 parent=self,
             )
             return
@@ -710,7 +707,7 @@ class AddEnvironmentDialog(tk.Toplevel):
 class RemoveEnvironmentDialog(tk.Toplevel):
     def __init__(self, parent, name: str, has_directory: bool):
         super().__init__(parent)
-        self.title(i18n.t("删除环境"))
+        self.title(i18n.t("Delete Environment"))
         self.transient(parent)
         self.resizable(False, False)
         self.result: Optional[Dict[str, object]] = None
@@ -720,13 +717,13 @@ class RemoveEnvironmentDialog(tk.Toplevel):
         frame.pack(fill="both", expand=True)
         ttk.Label(
             frame,
-            text="从清单中删除环境“{}”？".format(name),
+            text="Delete environment “{}” from the manifest?".format(name),
             style="CardTitle.TLabel",
             wraplength=620,
         ).pack(anchor="w")
         ttk.Label(
             frame,
-            text="这会修改 pixi.toml / pyproject.toml，但不会自动更新 lock 文件。",
+            text="This modifies pixi.toml / pyproject.toml but does not update the lock file automatically.",
             style="MutedCard.TLabel",
             wraplength=620,
         ).pack(anchor="w", pady=(4, 10))
@@ -734,7 +731,7 @@ class RemoveEnvironmentDialog(tk.Toplevel):
         self.cleanup_var = tk.BooleanVar(value=False)
         cleanup = ttk.Checkbutton(
             frame,
-            text="同时清理已安装的环境目录（pixi clean）",
+            text="Also clean the installed environment directory (pixi clean)",
             variable=self.cleanup_var,
         )
         cleanup.pack(anchor="w")
@@ -742,16 +739,16 @@ class RemoveEnvironmentDialog(tk.Toplevel):
             cleanup.configure(state="disabled")
             ttk.Label(
                 frame,
-                text="该环境当前没有已安装的 .pixi 环境目录。",
+                text="This environment has no installed .pixi directory.",
                 style="MutedCard.TLabel",
             ).pack(anchor="w", pady=(3, 0))
 
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", pady=(18, 0))
-        ttk.Button(buttons, text="取消", command=self.destroy).pack(side="right")
+        ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right")
         ttk.Button(
             buttons,
-            text="删除环境",
+            text="Delete Environment",
             style="Danger.TButton",
             command=self._accept,
         ).pack(side="right", padx=(0, 8))
@@ -795,7 +792,7 @@ class SettingsDialog(tk.Toplevel):
         terminal: str = "",
     ):
         super().__init__(parent)
-        self.title("设置")
+        self.title("Settings")
         self.transient(parent)
         self.resizable(False, False)
         self.result: Optional[Dict[str, object]] = None
@@ -803,37 +800,37 @@ class SettingsDialog(tk.Toplevel):
 
         frame = ttk.Frame(self, padding=18)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="Pixi 可执行文件", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Pixi executable", style="CardTitle.TLabel").grid(
             row=0, column=0, columnspan=3, sticky="w"
         )
         self.pixi_var = tk.StringVar(value=pixi_path)
         ttk.Entry(frame, textvariable=self.pixi_var, width=58).grid(
             row=1, column=0, columnspan=2, sticky="ew", pady=(4, 2)
         )
-        ttk.Button(frame, text="浏览…", command=self._browse_pixi).grid(
+        ttk.Button(frame, text="Browse…", command=self._browse_pixi).grid(
             row=1, column=2, padx=(8, 0)
         )
         ttk.Label(
             frame,
-            text="留空则自动从 PATH 查找；修改后下次刷新或重启生效。",
+            text="Leave blank to find Pixi on PATH; applies after refresh or restart.",
             style="Muted.TLabel",
         ).grid(row=2, column=0, columnspan=3, sticky="w")
 
-        ttk.Label(frame, text="主题", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Theme", style="CardTitle.TLabel").grid(
             row=3, column=0, sticky="w", pady=(16, 4)
         )
         self.theme_var = tk.StringVar(
-            value=i18n.t("深色") if theme_name == "dark" else i18n.t("浅色")
+            value=i18n.t("Dark") if theme_name == "dark" else i18n.t("Light")
         )
         ttk.Combobox(
             frame,
             textvariable=self.theme_var,
-            values=(i18n.t("浅色"), i18n.t("深色")),
+            values=(i18n.t("Light"), i18n.t("Dark")),
             state="readonly",
             width=12,
         ).grid(row=4, column=0, sticky="w")
 
-        ttk.Label(frame, text="界面语言", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Interface Language", style="CardTitle.TLabel").grid(
             row=5, column=0, sticky="w", pady=(16, 4)
         )
         self.language_var = tk.StringVar(value=i18n.language_display_name(language))
@@ -848,11 +845,11 @@ class SettingsDialog(tk.Toplevel):
         ).grid(row=6, column=0, sticky="w")
         ttk.Label(
             frame,
-            text="语言修改后需要重启程序生效。",
+            text="Language changes take effect after restarting the application.",
             style="Muted.TLabel",
         ).grid(row=6, column=1, columnspan=2, sticky="w", padx=(12, 0))
 
-        ttk.Label(frame, text="终端（可选）", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Terminal (optional)", style="CardTitle.TLabel").grid(
             row=7, column=0, sticky="w", pady=(16, 4)
         )
         self.terminal_var = tk.StringVar(value=terminal)
@@ -863,18 +860,17 @@ class SettingsDialog(tk.Toplevel):
             state="normal",
             width=48,
         ).grid(row=8, column=0, columnspan=2, sticky="ew", pady=(4, 2))
-        ttk.Button(frame, text="浏览…", command=self._browse_terminal).grid(
+        ttk.Button(frame, text="Browse…", command=self._browse_terminal).grid(
             row=8, column=2, padx=(8, 0)
         )
         ttk.Label(
             frame,
-            text="留空使用 PowerShell；可填 powershell.exe、cmd.exe、wt.exe、完整路径，"
-            "或带 {command}/{cmd}/{cwd}/{title} 的自定义模板。",
+            text="Leave empty for PowerShell. You can enter powershell.exe, cmd.exe, wt.exe, a full path, or a custom template using {command}/{cmd}/{cwd}/{title}.",
             style="Muted.TLabel",
             wraplength=680,
         ).grid(row=9, column=0, columnspan=3, sticky="w")
 
-        ttk.Label(frame, text="控制台最大行数", style="CardTitle.TLabel").grid(
+        ttk.Label(frame, text="Console max lines", style="CardTitle.TLabel").grid(
             row=3, column=1, sticky="w", pady=(16, 4)
         )
         self.lines_var = tk.StringVar(value=str(console_max_lines))
@@ -886,15 +882,15 @@ class SettingsDialog(tk.Toplevel):
         action_frame.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(20, 0))
         ttk.Button(
             action_frame,
-            text="清空打开历史",
+            text="Clear Open History",
             command=self._clear_history,
         ).pack(side="left")
         ttk.Button(
-            action_frame, text="取消", command=self.destroy
+            action_frame, text="Cancel", command=self.destroy
         ).pack(side="right")
         ttk.Button(
             action_frame,
-            text="保存",
+            text="Save",
             style="Accent.TButton",
             command=self._accept,
         ).pack(side="right", padx=(0, 8))
@@ -922,8 +918,8 @@ class SettingsDialog(tk.Toplevel):
     def _browse_pixi(self) -> None:
         path = filedialog.askopenfilename(
             parent=self,
-            title="选择 pixi 可执行文件",
-            filetypes=[("Pixi", "pixi.exe"), ("可执行文件", "*.exe"), ("所有文件", "*.*")],
+            title="Choose pixi executable",
+            filetypes=[("Pixi", "pixi.exe"), ("Executable", "*.exe"), ("All files", "*.*")],
         )
         if path:
             self.pixi_var.set(path)
@@ -931,11 +927,11 @@ class SettingsDialog(tk.Toplevel):
     def _browse_terminal(self) -> None:
         path = filedialog.askopenfilename(
             parent=self,
-            title=i18n.t("选择终端程序"),
+            title=i18n.t("Choose terminal program"),
             filetypes=[
-                (i18n.t("程序"), "*.exe"),
+                (i18n.t("Program"), "*.exe"),
                 ("Windows Terminal", "wt.exe"),
-                (i18n.t("所有文件"), "*.*"),
+                (i18n.t("All files"), "*.*"),
             ],
         )
         if path:
@@ -943,8 +939,8 @@ class SettingsDialog(tk.Toplevel):
 
     def _clear_history(self) -> None:
         if messagebox.askyesno(
-            "清空历史",
-            "确定清空最近打开的环境记录吗？Python 程序历史不会被删除。",
+            "Clear History",
+            "Clear the recent-environment list? Python program history will be kept.",
             parent=self,
         ):
             self._history_count = 0
@@ -954,7 +950,7 @@ class SettingsDialog(tk.Toplevel):
         try:
             lines = int(self.lines_var.get())
         except ValueError:
-            messagebox.showerror("设置无效", "控制台最大行数必须是整数。", parent=self)
+            messagebox.showerror("Invalid settings", "Console max lines must be an integer.", parent=self)
             return
         lines = max(1000, min(200000, lines))
         language_code = "zh"
@@ -964,7 +960,7 @@ class SettingsDialog(tk.Toplevel):
                 break
         self.result = {
             "pixi_path": self.pixi_var.get().strip(),
-            "theme": "dark" if self.theme_var.get() == i18n.t("深色") else "light",
+            "theme": "dark" if self.theme_var.get() == i18n.t("Dark") else "light",
             "console_max_lines": lines,
             "clear_history": bool(getattr(self, "_clear_requested", False)),
             "language": language_code,

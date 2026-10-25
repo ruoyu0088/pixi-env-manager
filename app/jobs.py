@@ -108,7 +108,7 @@ class JobManager:
         try:
             process = self._spawn(command, cwd)
         except OSError as exc:
-            raise RuntimeError("无法启动命令：{}".format(exc)) from exc
+            raise RuntimeError("Failed to start command: {}".format(exc)) from exc
 
         job = Job(
             job_id=job_id,
@@ -139,7 +139,7 @@ class JobManager:
             [str(item) for item in command] for command in commands if command
         ]
         if not normalized:
-            raise RuntimeError("命令序列为空")
+            raise RuntimeError("Command sequence is empty.")
         with self._lock:
             self._counter += 1
             job_id = self._counter
