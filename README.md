@@ -98,6 +98,10 @@ C:\some\python.exe .\pixi_env_manager.py
 
 ![Web UI](docs/screenshot-web-en.png)
 
+Command Center：
+
+![Web Command Center](docs/screenshot-web-command.png)
+
 默认启动 Tk 界面；加 `--web` 启动 Flask Web UI：
 
 首次使用 Web 模式需要 Flask：
@@ -133,6 +137,8 @@ localhost）都需要登录。
 - Tk/Web 对 `state.json` 的写入使用跨进程锁，避免同时打开时互相覆盖
 - 浅色主题的侧栏、输入框、按钮和输出面板控件都是浅色，仅输出日志保持深色
 - 密码哈希单独保存在 `web_auth.json`，它是登录凭据，不属于普通界面配置
+- Web Command 页与 Tk Command Center 共用命令规格：命令树、动态表单、帮助、预览、手动命令历史
+- 左侧 Python Programs 的 `▶` 会直接运行保存的脚本/参数，`>_` 在本地终端运行，点击文本行只加载到表单
 - Web 的“在终端中运行”会在运行服务器的电脑上打开本地终端
 - Web 使用 Flask；Tk 模式仍然只依赖标准库
 - 密码不要求长度或复杂度，只需非空
@@ -451,6 +457,8 @@ current console window; closing that window stops the server.
 - Tk and Web serialize `state.json` writes with a cross-process lock so simultaneous windows do not overwrite each other
 - In the light theme, the sidebar, inputs, buttons, and output-panel controls are light; only the output log stays dark
 - The password hash stays in `web_auth.json` as a login credential, separate from ordinary UI settings
+- The Web Command page mirrors Tk Command Center with shared command specs, forms, help, preview, and manual history
+- In Python Programs, `▶` directly runs the saved script/arguments, `>_` runs it in the local terminal, and clicking the text loads it into the form
 - **Run in Terminal** opens a terminal on the computer running the Web server
 - The Web UI uses Flask; Tk mode remains standard-library only
 - Passwords have no length or complexity requirement, but must be non-empty
@@ -755,6 +763,8 @@ localhost を含め、すべての Web アクセスにログインが必要で�
 - Tk/Web は `state.json` の書き込みをプロセス間ロックで直列化し、同時起動時の上書きを防ぎます
 - ライトテーマではサイドバー、入力欄、ボタン、出力パネルの操作部もライト表示です。出力ログだけはダークのままです
 - パスワードハッシュはログイン資格情報として `web_auth.json` に分離します
+- Web の Command ページは Tk Command Center と同じコマンド仕様を共有し、コマンドツリー、動的フォーム、ヘルプ、プレビュー、手動履歴を備えます
+- Python Programs の `▶` は保存済みスクリプト/引数を直接実行し、`>_` はローカルターミナルで実行、テキスト行のクリックはフォームへの読み込みだけです
 - 「ターミナルで実行」は Web サーバーを動かしている PC のローカルターミナルを開きます
 - Web は Flask を使用。Tk モードは標準ライブラリのみ
 - パスワードの長さ・複雑さの要件はありません（空文字のみ不可）
