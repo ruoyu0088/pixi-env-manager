@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 PASSWORD_ITERATIONS = 600_000
-MIN_PASSWORD_LENGTH = 8
 
 
 def auth_path() -> Path:
@@ -97,12 +96,8 @@ class AuthStore:
             return 7
 
     def set_password(self, password: str, session_days: int = 7) -> None:
-        if len(password) < MIN_PASSWORD_LENGTH:
-            raise ValueError(
-                "Password must be at least {} characters.".format(
-                    MIN_PASSWORD_LENGTH
-                )
-            )
+        if not password:
+            raise ValueError("Password cannot be empty.")
         self._data = {
             "password_hash": hash_password(password),
             "secret_key": secrets.token_urlsafe(48),

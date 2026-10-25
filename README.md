@@ -130,6 +130,7 @@ localhost）都需要登录。
 - Web 和 Tk 共用 `PixiClient`、`JobManager`、`app/state.py` 以及 `locales/*.json`
 - Web 的“在终端中运行”会在运行服务器的电脑上打开本地终端
 - Web 使用 Flask；Tk 模式仍然只依赖标准库
+- 密码不要求长度或复杂度，只需非空
 - 密码以 PBKDF2-SHA256 哈希保存，默认会话 7 天
 - 登录有 CSRF 防护和失败次数限速
 - 忘记密码时在服务器本机重新执行 `start.bat --web --set-password`
@@ -442,6 +443,7 @@ current console window; closing that window stops the server.
 - Tk and Web share `PixiClient`, `JobManager`, `app/state.py`, and `locales/*.json`
 - **Run in Terminal** opens a terminal on the computer running the Web server
 - The Web UI uses Flask; Tk mode remains standard-library only
+- Passwords have no length or complexity requirement, but must be non-empty
 - Passwords are stored as PBKDF2-SHA256 hashes; sessions last 7 days by default
 - Login uses CSRF protection and failed-attempt rate limiting
 - Reset a forgotten password locally with `start.bat --web --set-password`
@@ -740,6 +742,7 @@ localhost を含め、すべての Web アクセスにログインが必要で�
 - Tk と Web は `PixiClient`、`JobManager`、`app/state.py`、`locales/*.json` を共有
 - 「ターミナルで実行」は Web サーバーを動かしている PC のローカルターミナルを開きます
 - Web は Flask を使用。Tk モードは標準ライブラリのみ
+- パスワードの長さ・複雑さの要件はありません（空文字のみ不可）
 - パスワードは PBKDF2-SHA256 ハッシュで保存され、セッションは既定で 7 日間
 - ログインには CSRF 対策と失敗回数の制限あり
 - パスワードを忘れた場合はサーバー端末で `start.bat --web --set-password` を再実行

@@ -28,11 +28,13 @@ class PasswordTests(unittest.TestCase):
             self.assertTrue(AuthStore(path).verify("password123"))
             self.assertFalse(AuthStore(path).verify("bad"))
 
-    def test_minimum_length(self):
+    def test_short_password_is_accepted(self):
         with tempfile.TemporaryDirectory() as temp:
             store = AuthStore(Path(temp) / "web_auth.json")
+            store.set_password("1")
+            self.assertTrue(store.verify("1"))
             with self.assertRaises(ValueError):
-                store.set_password("short")
+                store.set_password("")
 
 
 class WebLoginTests(unittest.TestCase):
