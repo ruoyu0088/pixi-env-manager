@@ -80,6 +80,17 @@ class StateTests(unittest.TestCase):
         reloaded = AppState(self.path)
         self.assertEqual(reloaded.get_setting("theme"), "dark")
 
+    def test_two_instances_keep_each_others_updates(self):
+        first = AppState(self.path)
+        second = AppState(self.path)
+        first.set_setting("theme", "dark")
+        second.add_recent(self.manifest, "default", "demo")
+        second.set_setting("language", "ja")
+        latest = AppState(self.path)
+        self.assertEqual(latest.get_setting("theme"), "dark")
+        self.assertEqual(latest.get_setting("language"), "ja")
+        self.assertEqual(len(latest.recent()), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

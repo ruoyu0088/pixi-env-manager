@@ -80,6 +80,14 @@ class WebLoginTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.client.get("/api/workspace").status_code, 401)
 
+    def _login(self) -> str:
+        token = self._csrf()
+        response = self.client.post(
+            "/login", data={"csrf": token, "password": "password123"}
+        )
+        self.assertEqual(response.status_code, 302)
+        return self.client.get("/api/session").get_json()["csrf"]
+
     def test_csrf_required_for_mutations(self):
         token = self._csrf()
         self.client.post(
@@ -87,6 +95,32 @@ class WebLoginTests(unittest.TestCase):
         )
         response = self.client.post("/api/workspace/refresh", json={})
         self.assertEqual(response.status_code, 403)
+
+    def test_web_settings_are_written_to_shared_state(self):
+        self.state.set_setting("terminal", "cmd.exe")
+        csrf = self._login()
+        response = self.client.post(
+            "/api/settings",
+            json={"language": "ja", "theme": "dark"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["language"], "ja")
+        reloaded = AppState(Path(self.temp.name) / "state.json")
+        self.assertEqual(reloaded.get_setting("language"), "ja")
+        self.assertEqual(reloaded.get_setting("theme"), "dark")
+        self.assertEqual(reloaded.get_setting("terminal"), "cmd.exe")
+        session = self.client.get("/api/session").get_json()
+        self.assertEqual(session["language"], "ja")
+        self.assertEqual(session["theme"], "dark")
+
+    def test_login_page_reads_shared_language_and_theme(self):
+        self.state.set_setting("language", "ja")
+        self.state.set_setting("theme", "dark")
+        response = self.client.get("/login")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'lang="ja"', response.data)
+        self.assertIn(b'data-theme="dark"', response.data)
 
 
 if __name__ == "__main__":

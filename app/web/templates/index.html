@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ language }}" data-theme="light">
+<html lang="{{ language }}" data-theme="{{ theme }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -226,6 +226,7 @@
     window.PIXI_BOOT = {
       csrf: {{ csrf|tojson }},
       language: {{ language|tojson }},
+      theme: {{ theme|tojson }},
       appTitle: {{ app_title|tojson }}
     };
   </script>

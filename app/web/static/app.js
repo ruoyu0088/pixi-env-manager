@@ -4,7 +4,8 @@
   const boot = window.PIXI_BOOT || {};
   const csrf = boot.csrf || "";
   const state = {
-    language: boot.language || "en",
+    language: boot.language || "zh",
+    theme: boot.theme || "light",
     messages: {},
     data: null,
     selectedPackage: null,
@@ -59,7 +60,7 @@
     return payload;
   }
 
-  async function loadLanguage(language) {
+  async function loadLanguage(language, persist = true) {
     state.language = language;
     try {
       const payload = await api(`/api/i18n/${encodeURIComponent(language)}`);
@@ -75,9 +76,18 @@
       node.placeholder = t(node.dataset.i18nPlaceholder);
     });
     $("#language-select").value = language;
-    document.cookie = `pixi_lang=${encodeURIComponent(language)}; path=/; SameSite=Lax`;
-    applyTheme(document.documentElement.dataset.theme || "light");
+    applyTheme(state.theme, false);
     renderAll();
+    if (persist) {
+      try {
+        await api("/api/settings", {
+          method: "POST",
+          body: { language },
+        });
+      } catch (error) {
+        toast(error.message, "error");
+      }
+    }
   }
 
   function scopeLabel(scope) {
@@ -106,6 +116,7 @@
 
   function renderAll() {
     renderWorkspace();
+    renderRecent();
     renderSidebarTasks();
     renderSidebarPython();
     renderOverview();
@@ -141,16 +152,25 @@
     envSelect.innerHTML = options.join("");
     envSelect.onchange = () => setEnvironment(envSelect.value);
     $("#pixi-version").textContent = data.pixi ? `Pixi ${data.pixi}` : "Pixi";
-    renderRecent();
   }
 
   function renderRecent() {
     const select = $("#recent-workspaces");
     const recent = state.data?.recent || [];
     select.innerHTML = `<option value="">${escapeHtml(t("Recent workspaces"))}</option>` +
-      recent.map((item) => `<option value="${escapeAttr(item.manifest)}">${escapeHtml(item.name || item.manifest)} [${escapeHtml(item.environment || "")}]</option>`).join("");
+      recent.map((item) => `<option value="${escapeAttr(item.manifest)}" data-environment="${escapeAttr(item.environment || "")}">${escapeHtml(item.name || item.manifest)} [${escapeHtml(item.environment || "")}]</option>`).join("");
+    if (state.data?.opened) {
+      const match = recent.find((item) =>
+        item.manifest === state.data.manifest &&
+        String(item.environment || "") === String(state.data.environment || "")
+      );
+      if (match) select.value = match.manifest;
+    }
     select.onchange = () => {
-      if (select.value) openWorkspace(select.value);
+      const option = select.selectedOptions[0];
+      if (select.value) {
+        openWorkspace(select.value, option?.dataset.environment || "");
+      }
     };
   }
 
@@ -309,10 +329,13 @@
     }
   }
 
-  async function openWorkspace(path) {
+  async function openWorkspace(path, environment = "") {
     if (!path) return;
     try {
-      state.data = await api("/api/workspace/open", { method: "POST", body: { path } });
+      state.data = await api("/api/workspace/open", {
+        method: "POST",
+        body: { path, environment },
+      });
       state.selectedPackage = null;
       state.editorManifest = "";
       $("#editor-text").value = "";
@@ -882,14 +905,20 @@
     }
   }
 
-  function applyTheme(theme) {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("pixi-web-theme", theme);
-    $("#theme-label").textContent = t(theme === "dark" ? "Dark" : "Light");
+  function applyTheme(theme, persist = true) {
+    state.theme = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = state.theme;
+    $("#theme-label").textContent = t(state.theme === "dark" ? "Dark" : "Light");
+    if (persist) {
+      api("/api/settings", {
+        method: "POST",
+        body: { theme: state.theme },
+      }).catch((error) => toast(error.message, "error"));
+    }
   }
 
   function toggleTheme() {
-    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    applyTheme(state.theme === "dark" ? "light" : "dark");
   }
 
   function toggleSidebar() {
@@ -913,13 +942,23 @@
   }
 
   async function init() {
-    const savedTheme = localStorage.getItem("pixi-web-theme") || "light";
-    applyTheme(savedTheme);
     try {
       const session = await api("/api/session");
       state.language = session.language || state.language;
-      await loadLanguage(state.language);
+      state.theme = session.theme === "dark" ? "dark" : "light";
+      applyTheme(state.theme, false);
+      await loadLanguage(state.language, false);
       state.data = await api("/api/workspace");
+      if (!state.data?.opened) {
+        try {
+          state.data = await api("/api/workspace/auto-open", {
+            method: "POST",
+            body: {},
+          });
+        } catch (error) {
+          toast(error.message, "error");
+        }
+      }
       renderAll();
       if (state.data?.opened) loadEditor();
     } catch (error) {

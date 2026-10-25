@@ -300,20 +300,17 @@ class MainWindow:
             elif not self._console_collapsed:
                 self._console_collapsed = True
 
-            self.state.set_setting(
-                "layout_sidebar_width", int(self._sidebar_width), save=False
-            )
-            self.state.set_setting(
-                "layout_console_height", int(self._console_height), save=False
-            )
-            self.state.set_setting(
-                "layout_sidebar_collapsed", self._sidebar_collapsed, save=False
-            )
-            self.state.set_setting(
-                "layout_console_collapsed", self._console_collapsed, save=False
-            )
+            updates = {
+                "layout_sidebar_width": int(self._sidebar_width),
+                "layout_console_height": int(self._console_height),
+                "layout_sidebar_collapsed": self._sidebar_collapsed,
+                "layout_console_collapsed": self._console_collapsed,
+            }
             if save:
-                self.state.save()
+                self.state.update_settings(updates)
+            else:
+                for key, value in updates.items():
+                    self.state.set_setting(key, value, save=False)
         except (tk.TclError, ValueError):
             pass
 
@@ -404,7 +401,7 @@ class MainWindow:
     # ------------------------------------------------------------------
     def _apply_theme(self, name: str) -> None:
         self.theme.apply(name)
-        self.state.set_setting("theme", self.theme.name, save=False)
+        self.state.set_setting("theme", self.theme.name)
         try:
             self.sidebar.apply_colors(self.theme.colors)
             self.overview_tab.apply_colors(self.theme.colors)
@@ -437,14 +434,15 @@ class MainWindow:
             return
         result = dialog.result
         old_language = str(self.state.get_setting("language", "zh") or "zh")
-        self.state.set_setting("pixi_path", result["pixi_path"], save=False)
-        self.state.set_setting("language", result["language"], save=False)
-        self.state.set_setting(
-            "terminal", str(result.get("terminal") or ""), save=False
+        self.state.update_settings(
+            {
+                "pixi_path": result["pixi_path"],
+                "language": result["language"],
+                "terminal": str(result.get("terminal") or ""),
+                "console_max_lines": result["console_max_lines"],
+                "theme": str(result["theme"]),
+            }
         )
-        self.state.set_setting("console_max_lines", result["console_max_lines"], save=False)
-        self.state.set_setting("theme", str(result["theme"]), save=False)
-        self.state.save()
         self.pixi = PixiClient(str(result["pixi_path"]) or "")
         self.console.set_max_lines(int(result["console_max_lines"]))
         self._apply_theme(str(result["theme"]))
@@ -632,7 +630,7 @@ class MainWindow:
         self.open_button.configure(state="disabled")
         self._set_actions_enabled(False)
         self.set_status("Opening {}…".format(manifest.parent.name))
-        self.state.set_setting("last_open_dir", str(manifest.parent), save=False)
+        self.state.set_setting("last_open_dir", str(manifest.parent))
 
         def worker() -> WorkspaceData:
             return self.pixi.workspace(manifest, preferred_env=preferred_env)
@@ -1849,10 +1847,16 @@ class MainWindow:
         self._closing = True
         try:
             self._save_layout_state(save=False)
-            self.state.set_setting("window_geometry", self.root.geometry(), save=False)
-            self.state.set_setting("theme", self.theme.name, save=False)
-            self.state.set_setting("console_max_lines", self.console.max_lines, save=False)
-            self.state.save()
+            self.state.update_settings(
+                {
+                    "window_geometry": self.root.geometry(),
+                    "console_max_lines": self.console.max_lines,
+                    "layout_sidebar_width": int(self._sidebar_width),
+                    "layout_console_height": int(self._console_height),
+                    "layout_sidebar_collapsed": self._sidebar_collapsed,
+                    "layout_console_collapsed": self._console_collapsed,
+                }
+            )
         except Exception:
             pass
         self.root.destroy()

@@ -6,9 +6,11 @@ import copy
 import json
 import os
 import tempfile
+import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
@@ -57,6 +59,55 @@ def _norm_path(value: Any) -> str:
         return os.path.normcase(os.path.abspath(text))
 
 
+@contextmanager
+def _state_file_lock(path: Path) -> Iterator[None]:
+    """Serialize read-modify-write operations across Tk and Web processes."""
+    lock_path = path.with_name(path.name + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+b")
+    locked = False
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            deadline = time.monotonic() + 5.0
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    locked = True
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.02)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            locked = True
+        yield
+    finally:
+        if locked:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+        handle.close()
+
+
 class AppState:
     """A tiny JSON-backed store.
 
@@ -92,22 +143,41 @@ class AppState:
 
     def save(self) -> bool:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            payload = json.dumps(self.data, ensure_ascii=False, indent=2)
-            fd, temp_name = tempfile.mkstemp(
-                prefix="state-", suffix=".tmp", dir=str(self.path.parent)
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-                    handle.write(payload)
-                    handle.write("\n")
-                os.replace(temp_name, self.path)
-            finally:
-                if os.path.exists(temp_name):
-                    os.unlink(temp_name)
+            with _state_file_lock(self.path):
+                self._save_unlocked()
             return True
         except OSError:
             return False
+
+    def _save_unlocked(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(self.data, ensure_ascii=False, indent=2)
+        fd, temp_name = tempfile.mkstemp(
+            prefix="state-", suffix=".tmp", dir=str(self.path.parent)
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(payload)
+                handle.write("\n")
+            os.replace(temp_name, self.path)
+        finally:
+            if os.path.exists(temp_name):
+                os.unlink(temp_name)
+
+    def reload(self) -> None:
+        """Reload the latest file contents, waiting for another writer."""
+        try:
+            with _state_file_lock(self.path):
+                self.load()
+        except OSError:
+            self.load()
+
+    @contextmanager
+    def _write_transaction(self) -> Iterator[None]:
+        with _state_file_lock(self.path):
+            self.load()
+            yield
+            self._save_unlocked()
 
     # ------------------------------------------------------------------
     # Settings
@@ -123,9 +193,15 @@ class AppState:
         return self.settings.get(key, default)
 
     def set_setting(self, key: str, value: Any, save: bool = True) -> None:
-        self.settings[key] = value
-        if save:
-            self.save()
+        if not save:
+            self.settings[key] = value
+            return
+        self.update_settings({key: value})
+
+    def update_settings(self, values: Dict[str, Any]) -> None:
+        with self._write_transaction():
+            for key, value in values.items():
+                self.settings[key] = value
 
     def is_base_mode(self, manifest: Path) -> bool:
         normalized = _norm_path(manifest)
@@ -136,28 +212,28 @@ class AppState:
 
     def set_base_mode(self, manifest: Path, enabled: bool) -> None:
         normalized = _norm_path(manifest)
-        values = [
-            str(item)
-            for item in self.settings.get("base_mode_workspaces", [])
-            if isinstance(item, str) and _norm_path(item) != normalized
-        ]
-        if enabled:
-            values.append(str(manifest))
-            values = values[-30:]
-        self.settings["base_mode_workspaces"] = values
-        self.save()
+        with self._write_transaction():
+            values = [
+                str(item)
+                for item in self.settings.get("base_mode_workspaces", [])
+                if isinstance(item, str) and _norm_path(item) != normalized
+            ]
+            if enabled:
+                values.append(str(manifest))
+                values = values[-30:]
+            self.settings["base_mode_workspaces"] = values
 
     def add_command_history(self, command: str) -> None:
         command = command.strip()
         if not command:
             return
-        history = self.settings.get("command_history")
-        if not isinstance(history, list):
-            history = []
-        history = [item for item in history if item != command]
-        history.insert(0, command)
-        self.settings["command_history"] = history[:30]
-        self.save()
+        with self._write_transaction():
+            history = self.settings.get("command_history")
+            if not isinstance(history, list):
+                history = []
+            history = [item for item in history if item != command]
+            history.insert(0, command)
+            self.settings["command_history"] = history[:30]
 
     # ------------------------------------------------------------------
     # Recent workspaces / environments
@@ -173,6 +249,15 @@ class AppState:
         environment: str,
         name: str = "",
         save: bool = True,
+    ) -> None:
+        if not save:
+            self._add_recent_unlocked(manifest, environment, name)
+            return
+        with self._write_transaction():
+            self._add_recent_unlocked(manifest, environment, name)
+
+    def _add_recent_unlocked(
+        self, manifest: Path, environment: str, name: str = ""
     ) -> None:
         manifest_text = str(Path(manifest))
         normalized = _norm_path(manifest_text)
@@ -194,24 +279,22 @@ class AppState:
             },
         )
         self.data["recent"] = entries[:50]
-        if save:
-            self.save()
 
     def remove_recent(self, manifest: Path, environment: str) -> None:
         normalized = _norm_path(manifest)
-        self.data["recent"] = [
-            item
-            for item in self.data.get("recent", [])
-            if not (
-                _norm_path(item.get("manifest")) == normalized
-                and _clean_text(item.get("environment")) == environment
-            )
-        ]
-        self.save()
+        with self._write_transaction():
+            self.data["recent"] = [
+                item
+                for item in self.data.get("recent", [])
+                if not (
+                    _norm_path(item.get("manifest")) == normalized
+                    and _clean_text(item.get("environment")) == environment
+                )
+            ]
 
     def clear_recent(self) -> None:
-        self.data["recent"] = []
-        self.save()
+        with self._write_transaction():
+            self.data["recent"] = []
 
     # ------------------------------------------------------------------
     # Python programs
@@ -236,6 +319,25 @@ class AppState:
         cwd: Optional[Path] = None,
         exit_code: Optional[int] = None,
         save: bool = True,
+    ) -> None:
+        if not save:
+            self._add_python_run_unlocked(
+                manifest, environment, script, args, cwd, exit_code
+            )
+            return
+        with self._write_transaction():
+            self._add_python_run_unlocked(
+                manifest, environment, script, args, cwd, exit_code
+            )
+
+    def _add_python_run_unlocked(
+        self,
+        manifest: Path,
+        environment: str,
+        script: Path,
+        args: str,
+        cwd: Optional[Path],
+        exit_code: Optional[int],
     ) -> None:
         manifest_text = str(Path(manifest))
         normalized_manifest = _norm_path(manifest_text)
@@ -262,8 +364,6 @@ class AppState:
             },
         )
         self.data["python_runs"] = runs[:200]
-        if save:
-            self.save()
 
     def update_python_run_exit(
         self,
@@ -272,6 +372,23 @@ class AppState:
         script: Path,
         exit_code: int,
         save: bool = True,
+    ) -> None:
+        if save:
+            with self._write_transaction():
+                self._update_python_run_exit_unlocked(
+                    manifest, environment, script, exit_code
+                )
+            return
+        self._update_python_run_exit_unlocked(
+            manifest, environment, script, exit_code
+        )
+
+    def _update_python_run_exit_unlocked(
+        self,
+        manifest: Path,
+        environment: str,
+        script: Path,
+        exit_code: int,
     ) -> None:
         normalized_manifest = _norm_path(manifest)
         normalized_script = _norm_path(script)
@@ -283,39 +400,37 @@ class AppState:
             ):
                 item["last_exit"] = exit_code
                 item["last_run"] = _now()
-                if save:
-                    self.save()
                 return
 
     def remove_python_runs_for_env(
         self, manifest: Path, environment: str
     ) -> None:
         normalized = _norm_path(manifest)
-        self.data["python_runs"] = [
-            item
-            for item in self.data.get("python_runs", [])
-            if not (
-                _norm_path(item.get("manifest")) == normalized
-                and _clean_text(item.get("environment")) == environment
-            )
-        ]
-        self.save()
+        with self._write_transaction():
+            self.data["python_runs"] = [
+                item
+                for item in self.data.get("python_runs", [])
+                if not (
+                    _norm_path(item.get("manifest")) == normalized
+                    and _clean_text(item.get("environment")) == environment
+                )
+            ]
 
     def remove_python_run(
         self, manifest: Path, environment: str, script: Path
     ) -> None:
         normalized_manifest = _norm_path(manifest)
         normalized_script = _norm_path(script)
-        self.data["python_runs"] = [
-            item
-            for item in self.data.get("python_runs", [])
-            if not (
-                _norm_path(item.get("manifest")) == normalized_manifest
-                and _clean_text(item.get("environment")) == environment
-                and _norm_path(item.get("script")) == normalized_script
-            )
-        ]
-        self.save()
+        with self._write_transaction():
+            self.data["python_runs"] = [
+                item
+                for item in self.data.get("python_runs", [])
+                if not (
+                    _norm_path(item.get("manifest")) == normalized_manifest
+                    and _clean_text(item.get("environment")) == environment
+                    and _norm_path(item.get("script")) == normalized_script
+                )
+            ]
 
     def find_python_run(
         self, manifest: Path, environment: str, script: Path

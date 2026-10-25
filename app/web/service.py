@@ -7,12 +7,14 @@ objects as the Tk application instead of shelling out from JavaScript.
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from ..i18n import LANGUAGES
 from ..jobs import JobHub, JobManager, open_terminal
 from ..manifest import normalize_package_name
 from ..models import Package, TaskInfo, WorkspaceData, manifest_for_path
@@ -68,7 +70,8 @@ def _is_mutating(args: Sequence[str]) -> bool:
 class WebService:
     def __init__(self, state: Optional[AppState] = None):
         self.state = state or AppState()
-        self.pixi = PixiClient(str(self.state.get_setting("pixi_path", "") or ""))
+        self._pixi_path = str(self.state.get_setting("pixi_path", "") or "")
+        self.pixi = PixiClient(self._pixi_path)
         self.jobs = JobManager()
         self.hub = JobHub(self.jobs)
         self.hub.ensure_started()
@@ -82,7 +85,14 @@ class WebService:
     # ------------------------------------------------------------------
     # Workspace / environment
     # ------------------------------------------------------------------
-    def open_workspace(self, raw_path: str, environment: str = "") -> Dict[str, Any]:
+    def open_workspace(
+        self,
+        raw_path: str,
+        environment: str = "",
+        add_recent: bool = True,
+    ) -> Dict[str, Any]:
+        self.state.reload()
+        self._sync_pixi()
         raw_path = (raw_path or "").strip().strip('"')
         if not raw_path:
             raise WebServiceError("Enter a workspace path.")
@@ -102,6 +112,7 @@ class WebService:
         with self._lock:
             self.workspace = workspace
             self._pending_remove_environment = ""
+            self.state.set_setting("last_open_dir", str(manifest.parent))
             self.environment = (
                 preferred
                 if preferred in workspace.env_names
@@ -116,12 +127,34 @@ class WebService:
                 default = workspace.default_env()
                 if default is not None:
                     self.environment = default.name
-            self.state.add_recent(
-                manifest, self.environment, workspace.name
-            )
+            if add_recent:
+                self.state.add_recent(
+                    manifest, self.environment, workspace.name
+                )
             return self.summary()
 
+    def auto_open_recent(self) -> Dict[str, Any]:
+        with self._lock:
+            if self.workspace is not None:
+                return self.summary()
+        self.state.reload()
+        for item in self.state.recent(30):
+            manifest = Path(str(item.get("manifest") or ""))
+            if not manifest.is_file():
+                continue
+            try:
+                return self.open_workspace(
+                    str(manifest),
+                    str(item.get("environment") or ""),
+                    add_recent=False,
+                )
+            except WebServiceError:
+                continue
+        return self.summary()
+
     def refresh(self, environment: str = "") -> Dict[str, Any]:
+        self.state.reload()
+        self._sync_pixi()
         with self._lock:
             if self.workspace is None:
                 raise WebServiceError("Open a workspace first.")
@@ -165,6 +198,8 @@ class WebService:
             return self.summary()
 
     def set_environment(self, environment: str) -> Dict[str, Any]:
+        self.state.reload()
+        self._sync_pixi()
         with self._lock:
             if self.workspace is None:
                 raise WebServiceError("Open a workspace first.")
@@ -194,6 +229,14 @@ class WebService:
                 self._load_environment_packages(environment)
             return self.summary()
 
+    def _sync_pixi(self) -> None:
+        path = str(self.state.get_setting("pixi_path", "") or "")
+        if path == self._pixi_path:
+            return
+        self._pixi_path = path
+        self.pixi = PixiClient(path)
+        self._version_cache = None
+
     def _version_text(self) -> str:
         if self._version_cache is not None:
             return self._version_cache
@@ -206,6 +249,8 @@ class WebService:
         return self._version_cache
 
     def summary(self) -> Dict[str, Any]:
+        self.state.reload()
+        self._sync_pixi()
         with self._lock:
             workspace = self.workspace
             if workspace is None:
@@ -588,6 +633,7 @@ class WebService:
         use_manifest = tokens[0].lower() not in ("init", "help") and not tokens[
             0
         ].startswith("-")
+        self.state.add_command_history(subprocess.list2cmdline(tokens))
         title = "Pixi: {}".format(" ".join(tokens[:2]))
         if terminal:
             return self.open_terminal(tokens, title, use_manifest=use_manifest)
@@ -731,14 +777,39 @@ class WebService:
         return {"opened": True, "title": title}
 
     def settings(self) -> Dict[str, Any]:
+        self.state.reload()
+        self._sync_pixi()
+        language = str(self.state.get_setting("language", "zh") or "zh")
+        if language not in LANGUAGES:
+            language = "zh"
+        theme = str(self.state.get_setting("theme", "light") or "light")
+        if theme not in ("light", "dark"):
+            theme = "light"
         return {
             "terminal": str(self.state.get_setting("terminal", "") or ""),
-            "language": str(self.state.get_setting("language", "en") or "en"),
-            "theme": str(self.state.get_setting("theme", "light") or "light"),
+            "language": language,
+            "theme": theme,
         }
 
-    def update_settings(self, terminal: str) -> Dict[str, Any]:
-        self.state.set_setting("terminal", terminal.strip())
+    def update_settings(
+        self,
+        terminal: Optional[str] = None,
+        language: Optional[str] = None,
+        theme: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        values: Dict[str, Any] = {}
+        if terminal is not None:
+            values["terminal"] = terminal.strip()
+        if language is not None:
+            if language not in LANGUAGES:
+                raise WebServiceError("Unknown language: {}".format(language))
+            values["language"] = language
+        if theme is not None:
+            if theme not in ("light", "dark"):
+                raise WebServiceError("Unknown theme: {}".format(theme))
+            values["theme"] = theme
+        if values:
+            self.state.update_settings(values)
         return self.settings()
 
     def create_workspace(

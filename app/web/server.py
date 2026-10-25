@@ -69,22 +69,6 @@ class LoginLimiter:
             self._items.pop(key, None)
 
 
-def _request_language() -> str:
-    value = str(request.args.get("lang") or request.cookies.get("pixi_lang") or "")
-    if value in i18n.LANGUAGES:
-        return value
-    accept = request.headers.get("Accept-Language", "").lower()
-    if accept.startswith("ja"):
-        return "ja"
-    if accept.startswith("zh"):
-        return "zh"
-    return "en"
-
-
-def _translate(text: str) -> str:
-    return i18n.translate_for(text, _request_language())
-
-
 def create_app(
     service: WebService,
     auth: AuthStore,
@@ -103,6 +87,23 @@ def create_app(
         MAX_CONTENT_LENGTH=4 * 1024 * 1024,
     )
     limiter = LoginLimiter()
+
+    def _render_login(error: str = "", status: int = 200):
+        preferences = service.settings()
+        language = preferences["language"]
+        return (
+            render_template(
+                "login.html",
+                app_title=APP_TITLE,
+                csrf=_csrf(),
+                error=error,
+                language=language,
+                theme=preferences["theme"],
+                languages=i18n.LANGUAGES,
+                t=lambda text: i18n.translate_for(text, language),
+            ),
+            status,
+        )
 
     def _csrf() -> str:
         token = str(session.get("csrf") or "")
@@ -180,28 +181,15 @@ def create_app(
     def login():
         if session.get("authenticated"):
             return redirect(url_for("index"))
-        return render_template(
-            "login.html",
-            app_title=APP_TITLE,
-            csrf=_csrf(),
-            error="",
-            language=_request_language(),
-            languages=i18n.LANGUAGES,
-            t=_translate,
-        )
+        return _render_login()
 
     @app.post("/login")
     def login_post():
         if not limiter.allowed(request.remote_addr or "unknown"):
-            return (
-                render_template(
-                    "login.html",
-                    app_title=APP_TITLE,
-                    csrf=_csrf(),
-                    error=_translate("Too many attempts. Try again later."),
-                    language=_request_language(),
-                    languages=i18n.LANGUAGES,
-                    t=_translate,
+            language = service.settings()["language"]
+            return _render_login(
+                i18n.translate_for(
+                    "Too many attempts. Try again later.", language
                 ),
                 429,
             )
@@ -211,16 +199,9 @@ def create_app(
         password = request.form.get("password", "")
         if not password or not auth.verify(password):
             limiter.fail(request.remote_addr or "unknown")
-            return (
-                render_template(
-                    "login.html",
-                    app_title=APP_TITLE,
-                    csrf=_csrf(),
-                    error=_translate("Incorrect password."),
-                    language=_request_language(),
-                    languages=i18n.LANGUAGES,
-                    t=_translate,
-                ),
+            language = service.settings()["language"]
+            return _render_login(
+                i18n.translate_for("Incorrect password.", language),
                 401,
             )
         limiter.clear(request.remote_addr or "unknown")
@@ -232,14 +213,7 @@ def create_app(
         parsed_target = urlparse(str(target))
         if parsed_target.scheme or parsed_target.netloc or not str(target).startswith("/"):
             target = url_for("index")
-        response = redirect(target)
-        response.set_cookie(
-            "pixi_lang",
-            _request_language(),
-            httponly=False,
-            samesite="Lax",
-        )
-        return response
+        return redirect(target)
 
     @app.post("/logout")
     @_login_required
@@ -250,11 +224,13 @@ def create_app(
     @app.get("/")
     @_login_required
     def index():
+        preferences = service.settings()
         return render_template(
             "index.html",
             app_title=APP_TITLE,
             csrf=_csrf(),
-            language=_request_language(),
+            language=preferences["language"],
+            theme=preferences["theme"],
             languages=i18n.LANGUAGES,
         )
 
@@ -272,11 +248,13 @@ def create_app(
     @app.get("/api/session")
     @_login_required
     def api_session():
+        preferences = service.settings()
         return jsonify(
             {
                 "authenticated": True,
                 "csrf": _csrf(),
-                "language": _request_language(),
+                "language": preferences["language"],
+                "theme": preferences["theme"],
                 "languages": i18n.LANGUAGES,
                 "title": APP_TITLE,
                 "host": host,
@@ -287,6 +265,11 @@ def create_app(
     @_login_required
     def api_workspace():
         return jsonify(service.summary())
+
+    @app.post("/api/workspace/auto-open")
+    @_login_required
+    def api_auto_open_workspace():
+        return jsonify(service.auto_open_recent())
 
     @app.post("/api/workspace/open")
     @_login_required
@@ -452,7 +435,16 @@ def create_app(
     @_login_required
     def api_update_settings():
         payload = request.get_json(silent=True) or {}
-        return jsonify(service.update_settings(str(payload.get("terminal") or "")))
+        terminal = payload.get("terminal")
+        language = payload.get("language")
+        theme = payload.get("theme")
+        return jsonify(
+            service.update_settings(
+                terminal=str(terminal) if terminal is not None else None,
+                language=str(language) if language is not None else None,
+                theme=str(theme) if theme is not None else None,
+            )
+        )
 
     @app.get("/api/editor")
     @_login_required
