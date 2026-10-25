@@ -14,6 +14,10 @@
     pollTimer: null,
     activeTab: "overview",
     editorManifest: "",
+    commandSpecs: [],
+    commandContext: null,
+    activeCommandKey: "",
+    commandPreviewTimer: null,
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -206,7 +210,7 @@
     }
     root.innerHTML = runs.map((run, index) => {
       const name = String(run.script || "").split(/[\\/]/).pop() || "";
-      return `<div class="quick-row">
+      return `<div class="quick-row" data-python-row="${index}">
         <button class="run-btn" data-python="${index}" data-terminal="0" title="${escapeAttr(t("Run"))}">▶</button>
         <button class="run-btn terminal" data-python="${index}" data-terminal="1" title="${escapeAttr(t("Run in Terminal"))}">&gt;_</button>
         <div class="quick-text">
@@ -219,16 +223,43 @@
       button.onclick = () => {
         const run = runs[Number(button.dataset.python)];
         if (!run) return;
-        $("#python-script").value = run.script || "";
-        $("#python-args").value = run.args || "";
-        $("#python-cwd").value = run.cwd || "";
-        if (button.dataset.terminal === "1") runPython(true);
-        else {
-          setTab("python");
-          $("#python-script").focus();
-        }
+        runPythonEntry(run, button.dataset.terminal === "1");
       };
     });
+    root.querySelectorAll("[data-python-row] .quick-text").forEach((node) => {
+      node.onclick = () => {
+        const run = runs[Number(node.parentElement.dataset.pythonRow)];
+        if (!run) return;
+        loadPythonForm(run);
+        setTab("python");
+      };
+    });
+  }
+
+  function loadPythonForm(run) {
+    $("#python-script").value = run.script || "";
+    $("#python-args").value = run.args || "";
+    $("#python-cwd").value = run.cwd || "";
+  }
+
+  async function runPythonEntry(run, terminal) {
+    if (!run?.script) return;
+    try {
+      const job = await api("/api/jobs", {
+        method: "POST",
+        body: {
+          kind: "python",
+          script: run.script,
+          args: run.args || "",
+          cwd: run.cwd || "",
+          terminal,
+        },
+      });
+      if (terminal) toast(t("Terminal opened."));
+      else addJob(job);
+    } catch (error) {
+      toast(error.message, "error");
+    }
   }
 
   function renderOverview() {
@@ -324,6 +355,7 @@
       state.data = await api("/api/environment", { method: "POST", body: { environment } });
       state.selectedPackage = null;
       renderAll();
+      await refreshCommandContext();
     } catch (error) {
       toast(error.message, "error");
     }
@@ -341,6 +373,7 @@
       $("#editor-text").value = "";
       renderAll();
       if (state.activeTab === "editor") loadEditor();
+      await refreshCommandContext();
     } catch (error) {
       toast(error.message, "error");
     }
@@ -350,8 +383,15 @@
     try {
       state.data = await api("/api/workspace/refresh", { method: "POST", body: {} });
       renderAll();
+      await refreshCommandContext();
     } catch (error) {
       toast(error.message, "error");
+    }
+  }
+
+  async function refreshCommandContext() {
+    if (state.commandSpecs.length) {
+      await loadCommandCenter();
     }
   }
 
@@ -398,7 +438,12 @@
     try {
       const job = await api("/api/jobs", {
         method: "POST",
-        body: { kind: "command", command, terminal },
+        body: {
+          kind: "command",
+          command,
+          terminal,
+          use_manifest: $("#manual-auto-manifest")?.checked ?? true,
+        },
       });
       if (terminal) toast(t("Terminal opened."));
       else addJob(job);
@@ -687,6 +732,284 @@
     };
   }
 
+  function commandSpec(key) {
+    return (state.commandSpecs || []).find((spec) => spec.key === key);
+  }
+
+  function commandBaseTarget(spec) {
+    return Boolean(
+      state.commandContext?.base_mode &&
+      ["add", "remove"].includes(spec?.key)
+    );
+  }
+
+  function commandDefaultValues(spec) {
+    const context = state.commandContext || {};
+    const values = {};
+    for (const field of spec.fields || []) {
+      if (field.kind === "check") {
+        values[field.key] = false;
+      } else if (field.kind === "env") {
+        values[field.key] = commandBaseTarget(spec)
+          ? ""
+          : (context.environment || "");
+      } else if (field.kind === "combo") {
+        values[field.key] = field.default || "";
+      } else if (field.kind === "platform") {
+        values[field.key] = "";
+      } else if (field.default === "current") {
+        values[field.key] = context.environment || "";
+      } else {
+        values[field.key] = field.default || "";
+      }
+    }
+    return values;
+  }
+
+  async function loadCommandCenter() {
+    try {
+      const payload = await api("/api/commands");
+      state.commandSpecs = payload.specs || [];
+      state.commandContext = payload.context || {};
+      populateManualHistory();
+      if (!commandSpec(state.activeCommandKey)) {
+        state.activeCommandKey =
+          commandSpec("add")?.key || state.commandSpecs[0]?.key || "";
+      }
+      renderCommandTree();
+      if (state.activeCommandKey) {
+        renderCommandForm(state.activeCommandKey);
+      }
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  }
+
+  function renderCommandTree() {
+    const root = $("#command-tree");
+    if (!root) return;
+    const groups = new Map();
+    for (const spec of state.commandSpecs) {
+      if (!groups.has(spec.group)) groups.set(spec.group, []);
+      groups.get(spec.group).push(spec);
+    }
+    const parts = [];
+    for (const [group, specs] of groups) {
+      parts.push(`<div class="command-group-title">${escapeHtml(t(group))}</div>`);
+      for (const spec of specs) {
+        parts.push(
+          `<button type="button" class="command-item ${spec.key === state.activeCommandKey ? "active" : ""}" data-command-key="${escapeAttr(spec.key)}">${escapeHtml(t(spec.title))}</button>`
+        );
+      }
+    }
+    root.innerHTML = parts.join("");
+    root.querySelectorAll("[data-command-key]").forEach((button) => {
+      button.onclick = () => selectCommand(button.dataset.commandKey);
+    });
+  }
+
+  function selectCommand(key) {
+    state.activeCommandKey = key;
+    renderCommandTree();
+    renderCommandForm(key);
+  }
+
+  function commandFieldControl(spec, field, values) {
+    const id = `command-field-${field.key}`;
+    const value = values[field.key] ?? "";
+    if (field.kind === "check") {
+      return `<label class="check-row"><input id="${id}" data-command-field="${escapeAttr(field.key)}" type="checkbox" ${value ? "checked" : ""}><span>${escapeHtml(t("Enabled"))}</span></label>`;
+    }
+    if (field.kind === "env") {
+      const options = [`<option value="">${escapeHtml(t("(not specified)"))}</option>`]
+        .concat(
+          (state.commandContext?.environments || []).map(
+            (name) =>
+              `<option value="${escapeAttr(name)}" ${name === value ? "selected" : ""}>${escapeHtml(name)}</option>`
+          )
+        );
+      return `<select id="${id}" data-command-field="${escapeAttr(field.key)}" ${commandBaseTarget(spec) ? "disabled" : ""}>${options.join("")}</select>`;
+    }
+    if (field.kind === "platform") {
+      const options = [`<option value="">${escapeHtml(t("(not specified)"))}</option>`]
+        .concat(
+          (state.commandContext?.platforms || []).map(
+            (name) =>
+              `<option value="${escapeAttr(name)}" ${name === value ? "selected" : ""}>${escapeHtml(name)}</option>`
+          )
+        );
+      return `<select id="${id}" data-command-field="${escapeAttr(field.key)}">${options.join("")}</select>`;
+    }
+    if (field.kind === "combo") {
+      return `<select id="${id}" data-command-field="${escapeAttr(field.key)}">${(field.values || []).map((item) => `<option value="${escapeAttr(item)}" ${item === value ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select>`;
+    }
+    if (field.kind === "task") {
+      return `<input id="${id}" data-command-field="${escapeAttr(field.key)}" type="text" list="command-task-options" value="${escapeAttr(value)}">`;
+    }
+    return `<input id="${id}" data-command-field="${escapeAttr(field.key)}" type="text" value="${escapeAttr(value)}" ${commandBaseTarget(spec) && field.key === "feature" ? "disabled" : ""}>`;
+  }
+
+  function renderCommandForm(key) {
+    const spec = commandSpec(key);
+    if (!spec) return;
+    const values = commandDefaultValues(spec);
+    $("#command-title").textContent = t(spec.title);
+    $("#command-summary").textContent = t(spec.summary);
+    const baseNotice = $("#command-base-notice");
+    baseNotice.hidden = !commandBaseTarget(spec);
+    baseNotice.textContent = commandBaseTarget(spec)
+      ? t("Base-dependency mode: this command affects all environments.")
+      : "";
+    const taskOptions = (state.commandContext?.tasks || [])
+      .map((name) => `<option value="${escapeAttr(name)}"></option>`)
+      .join("");
+    const rows = [];
+    for (const field of spec.fields || []) {
+      rows.push(
+        `<div class="command-field-label ${field.required ? "required" : ""}">${escapeHtml(t(field.label))}</div>`
+      );
+      rows.push(
+        `<div class="command-field">${commandFieldControl(spec, field, values)}${field.help ? `<span class="field-help">${escapeHtml(t(field.help))}</span>` : ""}</div>`
+      );
+    }
+    $("#command-form").innerHTML = `${rows.join("")}<datalist id="command-task-options">${taskOptions}</datalist>`;
+    $("#command-form")
+      .querySelectorAll("[data-command-field]")
+      .forEach((node) => {
+        const eventName = node.type === "checkbox" ? "change" : "input";
+        node.addEventListener(eventName, () => scheduleCommandPreview());
+        if (node.tagName === "SELECT") {
+          node.addEventListener("change", () => scheduleCommandPreview());
+        }
+      });
+    const runButton = $("#command-run");
+    runButton.textContent = t(spec.terminal ? "Open Terminal" : "Run");
+    updateCommandPreview();
+    loadCommandHelp(spec);
+  }
+
+  function commandFormValues(spec) {
+    const values = {};
+    for (const field of spec.fields || []) {
+      const node = document.getElementById(`command-field-${field.key}`);
+      if (!node) {
+        values[field.key] = field.kind === "check" ? false : "";
+      } else if (field.kind === "check") {
+        values[field.key] = Boolean(node.checked);
+      } else {
+        values[field.key] = String(node.value || "").trim();
+      }
+    }
+    return values;
+  }
+
+  function scheduleCommandPreview() {
+    clearTimeout(state.commandPreviewTimer);
+    state.commandPreviewTimer = setTimeout(updateCommandPreview, 220);
+  }
+
+  async function updateCommandPreview() {
+    const spec = commandSpec(state.activeCommandKey);
+    if (!spec) return;
+    const key = spec.key;
+    try {
+      const payload = await api("/api/commands/preview", {
+        method: "POST",
+        body: { key, values: commandFormValues(spec) },
+      });
+      if (state.activeCommandKey !== key) return;
+      $("#command-preview").textContent = payload.error
+        ? `（${t(payload.error)}）`
+        : (payload.preview || "");
+    } catch (error) {
+      if (state.activeCommandKey === key) {
+        $("#command-preview").textContent = `（${error.message}）`;
+      }
+    }
+  }
+
+  async function loadCommandHelp(spec) {
+    const key = spec.key;
+    $("#command-help").textContent = t("Loading help…");
+    try {
+      const payload = await api(
+        `/api/commands/help?key=${encodeURIComponent(key)}`
+      );
+      if (state.activeCommandKey !== key) return;
+      $("#command-help").textContent = payload.text || "";
+    } catch (error) {
+      if (state.activeCommandKey === key) {
+        $("#command-help").textContent = error.message;
+      }
+    }
+  }
+
+  async function runCurrentCommand() {
+    const spec = commandSpec(state.activeCommandKey);
+    if (!spec) return;
+    if (spec.dangerous && !confirm(t("Run this command?"))) return;
+    const payload = {
+      key: spec.key,
+      values: commandFormValues(spec),
+      terminal: false,
+      confirm_base: false,
+    };
+    try {
+      let result = await api("/api/commands/run", {
+        method: "POST",
+        body: payload,
+      });
+      if (result.needs_confirmation) {
+        if (!confirm(result.message)) return;
+        result = await api("/api/commands/run", {
+          method: "POST",
+          body: { ...payload, confirm_base: true },
+        });
+      }
+      if (result.id) addJob(result);
+      else if (result.opened) toast(t("Terminal opened."));
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  }
+
+  async function copyCommandPreview() {
+    const text = $("#command-preview").textContent || "";
+    if (!text) return;
+    await copyText(text);
+    toast(t("Copied."));
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const node = document.createElement("textarea");
+      node.value = text;
+      document.body.appendChild(node);
+      node.select();
+      document.execCommand("copy");
+      node.remove();
+    }
+  }
+
+  function populateManualHistory() {
+    const list = $("#manual-command-history");
+    if (!list) return;
+    const history = state.commandContext?.manual_history || [];
+    list.innerHTML = history
+      .map((item) => `<option value="${escapeAttr(item)}"></option>`)
+      .join("");
+  }
+
+  async function copyManualCommand() {
+    const text = $("#manual-command").value.trim();
+    if (text) {
+      await copyText(text);
+      toast(t("Copied."));
+    }
+  }
+
   function renderEditorPath() {
     $("#editor-path").textContent = state.data?.manifest || "pixi.toml";
   }
@@ -872,6 +1195,9 @@
     ) {
       loadEditor();
     }
+    if (name === "command" && !state.commandSpecs.length) {
+      loadCommandCenter();
+    }
   }
 
   function openModal(content) {
@@ -961,6 +1287,7 @@
       }
       renderAll();
       if (state.data?.opened) loadEditor();
+      await loadCommandCenter();
     } catch (error) {
       toast(error.message, "error");
     }
@@ -990,6 +1317,9 @@
     $("#run-python-terminal").onclick = () => runPython(true);
     $("#run-command").onclick = () => runCommand(false);
     $("#run-command-terminal").onclick = () => runCommand(true);
+    $("#command-run").onclick = runCurrentCommand;
+    $("#command-copy").onclick = copyCommandPreview;
+    $("#copy-command").onclick = copyManualCommand;
     $("#reload-editor").onclick = loadEditor;
     $("#save-editor").onclick = saveEditor;
     $("#stop-job").onclick = stopActiveJob;

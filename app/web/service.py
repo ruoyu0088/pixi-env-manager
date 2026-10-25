@@ -14,6 +14,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from ..command_specs import (
+    CommandSpec,
+    build_command_args,
+    command_specs,
+    spec_to_dict,
+)
 from ..i18n import LANGUAGES
 from ..jobs import JobHub, JobManager, open_terminal
 from ..manifest import normalize_package_name
@@ -620,7 +626,12 @@ class WebService:
             return self.open_terminal(cmd, title)
         return self._start_job(title, cmd, extra={"python": str(path)})
 
-    def run_command(self, command: str, terminal: bool = False) -> Dict[str, Any]:
+    def run_command(
+        self,
+        command: str,
+        terminal: bool = False,
+        use_manifest: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         tokens = split_user_args(command)
         if not tokens:
             raise WebServiceError("Command is empty.")
@@ -630,9 +641,11 @@ class WebService:
             raise WebServiceError("Command is empty.")
         if tokens[0].lower() in ("powershell", "cmd", "bash", "sh"):
             raise WebServiceError("Shell commands are not allowed in the Web UI.")
-        use_manifest = tokens[0].lower() not in ("init", "help") and not tokens[
-            0
-        ].startswith("-")
+        if use_manifest is None:
+            use_manifest = tokens[0].lower() not in (
+                "init",
+                "help",
+            ) and not tokens[0].startswith("-")
         self.state.add_command_history(subprocess.list2cmdline(tokens))
         title = "Pixi: {}".format(" ".join(tokens[:2]))
         if terminal:
@@ -775,6 +788,167 @@ class WebService:
         except OSError as exc:
             raise WebServiceError(str(exc), 500) from exc
         return {"opened": True, "title": title}
+
+    # ------------------------------------------------------------------
+    # Command Center
+    # ------------------------------------------------------------------
+    def command_center(self) -> Dict[str, Any]:
+        self.state.reload()
+        self._sync_pixi()
+        with self._lock:
+            workspace = self.workspace
+            environment = self.environment
+            base_mode = self.base_mode
+        environments: List[str] = []
+        tasks: List[str] = []
+        platforms = {"win-64", "linux-64", "osx-64", "osx-arm64"}
+        if workspace is not None:
+            environments = list(workspace.env_names)
+            tasks = [task.name for task in workspace.tasks_for_env(environment)]
+            for env in workspace.envs:
+                if env.platform:
+                    platforms.add(env.platform)
+            if workspace.platform:
+                platforms.add(workspace.platform)
+        history = self.state.get_setting("command_history", [])
+        if not isinstance(history, list):
+            history = []
+        return {
+            "specs": [spec_to_dict(spec) for spec in command_specs()],
+            "context": {
+                "environment": environment,
+                "base_mode": base_mode,
+                "environments": environments,
+                "tasks": tasks,
+                "platforms": sorted(value for value in platforms if value),
+                "manual_history": [str(item) for item in history[:30]],
+                "opened": workspace is not None,
+            },
+        }
+
+    def command_preview(
+        self, key: str, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        spec = self._command_spec(key)
+        args, error = build_command_args(spec, values)
+        if error:
+            return {"args": [], "preview": "", "error": error}
+        try:
+            preview_args = (
+                _with_manifest(args, self._require_workspace().manifest)
+                if spec.use_manifest
+                else args
+            )
+            preview = self.pixi.command_line(preview_args)
+        except Exception as exc:
+            return {"args": args, "preview": "", "error": str(exc)}
+        return {"args": args, "preview": preview, "error": ""}
+
+    def command_help(self, key: str) -> Dict[str, Any]:
+        spec = self._command_spec(key)
+        try:
+            text = self.pixi.help_text(list(spec.help_args))
+        except Exception as exc:
+            text = str(exc)
+        return {"key": key, "text": text}
+
+    def command_run(
+        self,
+        key: str,
+        values: Dict[str, Any],
+        terminal: bool = False,
+        confirm_base: bool = False,
+    ) -> Dict[str, Any]:
+        spec = self._command_spec(key)
+        args, error = build_command_args(spec, values)
+        if error:
+            raise WebServiceError(error)
+        if spec.key == "remove":
+            args, error, needs_confirmation, message = self._remove_scope(
+                args, values, confirm_base
+            )
+            if error:
+                raise WebServiceError(error)
+            if needs_confirmation:
+                return {
+                    "needs_confirmation": True,
+                    "message": message,
+                    "args": args,
+                }
+        if not args:
+            raise WebServiceError("The command is empty.")
+        if spec.terminal:
+            return self.open_terminal(
+                args, spec.title, use_manifest=spec.use_manifest
+            )
+        return self._start_job(
+            spec.title,
+            args,
+            use_manifest=spec.use_manifest,
+        )
+
+    def _command_spec(self, key: str) -> CommandSpec:
+        for spec in command_specs():
+            if spec.key == key:
+                return spec
+        raise WebServiceError("Unknown command: {}".format(key), 404)
+
+    def _remove_scope(
+        self,
+        args: List[str],
+        values: Dict[str, Any],
+        confirm_base: bool,
+    ) -> tuple[List[str], str, bool, str]:
+        workspace = self._require_workspace()
+        if "--feature" in args:
+            return args, "", False, ""
+        target = ""
+        for index, value in enumerate(args):
+            if value == "--environment" and index + 1 < len(args):
+                target = args[index + 1]
+                break
+        names = split_user_args(str(values.get("specs") or ""))
+        if not names:
+            return args, "", False, ""
+        scopes = workspace.scopes
+        base_names = []
+        env_names = []
+        other_names = []
+        for name in names:
+            scope = scopes.scope_for(name)
+            if scope == "base":
+                base_names.append(name)
+            elif scope.startswith("env:"):
+                env_names.append(name)
+            else:
+                other_names.append(name)
+        if base_names and (env_names or other_names):
+            return (
+                args,
+                "A single command cannot remove both base and "
+                "environment-only dependencies.",
+                False,
+                "",
+            )
+        if not base_names:
+            if not target:
+                return (
+                    args,
+                    "These packages are not base dependencies.",
+                    False,
+                    "",
+                )
+            return args, "", False, ""
+        message = (
+            "{} is a base dependency. Removing it affects all environments. "
+            "Remove it from the base dependencies?"
+        ).format(", ".join(base_names))
+        if not confirm_base:
+            return args, "", True, message
+        if target:
+            index = args.index("--environment")
+            args = args[:index] + args[index + 2 :]
+        return args, "", False, ""
 
     def settings(self) -> Dict[str, Any]:
         self.state.reload()

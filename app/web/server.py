@@ -317,6 +317,40 @@ def create_app(
     def api_compatible():
         return jsonify(service.compatible_updates())
 
+    @app.get("/api/commands")
+    @_login_required
+    def api_commands():
+        return jsonify(service.command_center())
+
+    @app.get("/api/commands/help")
+    @_login_required
+    def api_command_help():
+        return jsonify(service.command_help(str(request.args.get("key") or "")))
+
+    @app.post("/api/commands/preview")
+    @_login_required
+    def api_command_preview():
+        payload = request.get_json(silent=True) or {}
+        return jsonify(
+            service.command_preview(
+                str(payload.get("key") or ""),
+                dict(payload.get("values") or {}),
+            )
+        )
+
+    @app.post("/api/commands/run")
+    @_login_required
+    def api_command_run():
+        payload = request.get_json(silent=True) or {}
+        return jsonify(
+            service.command_run(
+                str(payload.get("key") or ""),
+                dict(payload.get("values") or {}),
+                terminal=bool(payload.get("terminal")),
+                confirm_base=bool(payload.get("confirm_base")),
+            )
+        )
+
     @app.get("/api/environments/features")
     @_login_required
     def api_features():
@@ -362,10 +396,16 @@ def create_app(
                 )
             )
         if kind == "command":
+            auto_manifest = payload.get("use_manifest")
             return jsonify(
                 service.run_command(
                     str(payload.get("command") or ""),
                     bool(payload.get("terminal")),
+                    use_manifest=(
+                        bool(auto_manifest)
+                        if auto_manifest is not None
+                        else None
+                    ),
                 )
             )
         if kind == "add":

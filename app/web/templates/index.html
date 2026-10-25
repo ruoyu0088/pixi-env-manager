@@ -174,13 +174,55 @@
         </div>
 
         <div class="tab-panel" id="tab-command">
-          <div class="card">
+          <div class="command-layout">
+            <aside class="card command-list-card">
+              <div class="card-header">
+                <h2 data-i18n="Command Center">Command Center</h2>
+                <a class="doc-link" href="https://pixi.sh/latest/reference/cli/" target="_blank" rel="noreferrer" data-i18n="Pixi CLI Docs">Pixi CLI Docs</a>
+              </div>
+              <div id="command-tree" class="command-tree"></div>
+            </aside>
+
+            <div class="command-main">
+              <div class="card command-form-card">
+                <div class="card-header">
+                  <div>
+                    <h2 id="command-title" data-i18n="Command Center">Command Center</h2>
+                    <p id="command-summary" class="muted"></p>
+                  </div>
+                </div>
+                <div id="command-base-notice" class="command-notice" hidden></div>
+                <div id="command-form" class="command-form"></div>
+                <div class="actions command-actions">
+                  <button class="button button-primary" id="command-run" type="button" data-i18n="Run">Run</button>
+                  <button class="button" id="command-copy" type="button" data-i18n="Copy Command">Copy Command</button>
+                </div>
+              </div>
+
+              <div class="card command-help-card">
+                <div class="card-header"><h2 data-i18n="Command Help">Command Help</h2></div>
+                <pre id="command-help" class="command-text"></pre>
+              </div>
+            </div>
+
+            <div class="command-side">
+              <div class="card command-preview-card">
+                <div class="card-header"><h2 data-i18n="Command Preview">Command Preview</h2></div>
+                <pre id="command-preview" class="command-text"></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="card command-manual-card">
             <div class="card-header"><h2 data-i18n="Manual Command">Manual Command</h2></div>
             <p class="muted" data-i18n="Enter arguments after pixi. The command is executed without a shell.">Enter arguments after pixi. The command is executed without a shell.</p>
-            <input id="manual-command" class="wide" type="text" placeholder="add numpy">
+            <input id="manual-command" class="wide" type="text" list="manual-command-history" placeholder="add numpy">
+            <datalist id="manual-command-history"></datalist>
+            <label class="check-row"><input id="manual-auto-manifest" type="checkbox" checked><span data-i18n="Auto manifest">Auto manifest</span></label>
             <div class="actions">
               <button class="button button-primary" id="run-command" type="button" data-i18n="Run">Run</button>
               <button class="button" id="run-command-terminal" type="button" data-i18n="Run in Terminal">Run in Terminal</button>
+              <button class="button" id="copy-command" type="button" data-i18n="Copy">Copy</button>
             </div>
           </div>
         </div>

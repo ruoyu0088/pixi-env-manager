@@ -314,6 +314,41 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .editor-card { display: flex; flex-direction: column; height: calc(100vh - 250px); min-height: 280px; }
 #editor-text { flex: 1; width: 100%; resize: none; font: 12px/1.5 Consolas, "Cascadia Mono", monospace; tab-size: 2; }
 
+/* ---------- Command Center ---------- */
+.command-layout { display: grid; grid-template-columns: 220px minmax(360px, 1fr) 330px; gap: 12px; align-items: start; }
+.command-main, .command-side { display: grid; gap: 12px; min-width: 0; }
+.command-list-card, .command-form-card, .command-help-card, .command-preview-card { margin-bottom: 0; }
+.command-list-card { position: sticky; top: 0; max-height: calc(100vh - 320px); overflow: auto; }
+.command-tree { display: grid; gap: 3px; }
+.command-group-title { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 6px 3px; }
+.command-item {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.command-item:hover { background: var(--accent-soft); }
+.command-item.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.command-form { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 7px 12px; align-items: start; margin-bottom: 12px; }
+.command-field-label { color: var(--muted); padding-top: 7px; font-size: 12px; }
+.command-field-label.required::after { content: " *"; color: var(--danger); }
+.command-field { min-width: 0; display: grid; gap: 3px; }
+.command-field input[type="text"], .command-field select { width: 100%; }
+.command-field .field-help { color: var(--muted); font-size: 11px; }
+.command-field .check-row { padding-top: 6px; }
+.command-notice { background: var(--accent-soft); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; }
+.command-actions { border-top: 1px solid var(--line); padding-top: 10px; }
+.command-text { margin: 0; min-height: 120px; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 9px; font: 11px/1.5 Consolas, "Cascadia Mono", monospace; }
+.command-help-card .command-text { min-height: 240px; max-height: 420px; }
+.command-preview-card .command-text { min-height: 140px; }
+.doc-link { font-size: 11px; white-space: nowrap; }
+.command-manual-card { margin-top: 12px; }
+.check-row { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.command-layout .check-row { padding-top: 5px; }
+
 /* ---------- Output ---------- */
 .output-panel { height: 220px; min-height: 0; border-top: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; }
 .output-panel.collapsed { height: 38px; }
@@ -337,8 +372,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .toast-root { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 60; }
 .toast { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; box-shadow: var(--shadow); max-width: 380px; font-size: 12px; }
 
+@media (max-width: 1200px) {
+  .command-layout { grid-template-columns: 200px minmax(0, 1fr); }
+  .command-side { grid-column: 1 / -1; }
+  .command-preview-card .command-text { min-height: 100px; max-height: 220px; }
+}
 @media (max-width: 900px) {
   .sidebar { width: 250px; }
+  .command-layout { grid-template-columns: 1fr; }
+  .command-list-card { position: static; max-height: none; }
+  .command-side { grid-column: auto; }
+  .command-form { grid-template-columns: 1fr; }
   .main-header { align-items: flex-start; flex-direction: column; }
   .header-actions { width: 100%; }
   .environment-select { flex: 1; }
