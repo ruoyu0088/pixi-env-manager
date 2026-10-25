@@ -159,8 +159,9 @@ Task 和 Python 程序可以连续启动多个，不会因为已有任务运行�
 ### 界面语言
 
 在“设置 → 界面语言”中选择中文、English 或 日本語，保存后重启程序生效。
-Pixi 自身的 `--help` 和命令输出保持原语言；少量较不常用的提示在日文模式下会
-回退为英文。
+界面源码使用英文，`locales/zh.json` 和 `locales/ja.json` 以英文为 key 保存翻译；
+直接编辑 JSON 即可修改文案。Pixi 自身的 `--help` 和命令输出保持原语言；少量较不
+常用的提示在日文模式下会回退为英文。
 
 ### 布局与快捷键
 
@@ -210,9 +211,12 @@ Windows 参数拆分、国际化模板和多任务命令分类。GUI 本身使�
 pixi-env-manager/
   pixi_env_manager.py      入口
   start.bat                双击启动
+  locales/
+    zh.json                中文翻译（英文 key）
+    ja.json                日文翻译（英文 key）
   app/
     state.py                设置、环境历史、Python 运行历史
-    i18n.py                 中文/英文/日文翻译层
+    i18n.py                 翻译控制器（英文源码 + JSON 词典）
     pixi.py                 Pixi CLI 封装
     models.py               数据模型
     manifest.py             基础/feature/环境依赖作用域解析
@@ -404,8 +408,10 @@ jobs. The output area at the bottom creates a separate tab for each job:
 ### UI language
 
 Choose Chinese, English, or Japanese under **Settings → UI language**; restart the
-application to apply it. Pixi's own `--help` and command output keep their original
-language. A few less common prompts fall back to English in Japanese mode.
+application to apply it. UI source strings are English, and `locales/zh.json` /
+`locales/ja.json` store translations keyed by those English strings. Edit the JSON
+files directly to change wording. Pixi's own `--help` and command output keep their
+original language. A few less common prompts fall back to English in Japanese mode.
 
 ### Layout and shortcuts
 
@@ -456,9 +462,12 @@ unit tests.
 pixi-env-manager/
   pixi_env_manager.py      Entry point
   start.bat                Double-click launcher
+  locales/
+    zh.json                Chinese translations (English keys)
+    ja.json                Japanese translations (English keys)
   app/
     state.py               Settings, environment history, Python run history
-    i18n.py                Chinese/English/Japanese translation layer
+    i18n.py                Translation controller (English source + JSON catalogs)
     pixi.py                Pixi CLI wrapper
     models.py              Data models
     manifest.py            Base/feature/environment dependency scope parsing
@@ -645,8 +654,10 @@ Task と Python プログラムは、既存のジョブにブロックされず�
 ### UI 言語
 
 「設定 → インターフェース言語」で中文、English、日本語を選択し、保存後に再起動すると
-反映されます。Pixi 自身の `--help` とコマンド出力は元の言語のままです。日本語モードでは
-一部のマイナーなメッセージが英語にフォールバックします。
+反映されます。UI のソース文字列は英語で、`locales/zh.json` / `locales/ja.json` に
+英語を key とした翻訳を保存しています。JSON を直接編集して文言を変更できます。
+Pixi 自身の `--help` とコマンド出力は元の言語のままです。日本語モードでは一部の
+マイナーなメッセージが英語にフォールバックします。
 
 ### レイアウトとショートカット
 
@@ -696,9 +707,12 @@ Tkinter を使用しており、ヘッドレス単体テストの対象ではあ
 pixi-env-manager/
   pixi_env_manager.py      エントリーポイント
   start.bat                ダブルクリック起動
+  locales/
+    zh.json                中国語翻訳（英語 key）
+    ja.json                日本語翻訳（英語 key）
   app/
     state.py               設定、環境履歴、Python 実行履歴
-    i18n.py                中国語/英語/日本語の翻訳レイヤー
+    i18n.py                翻訳コントローラー（英語ソース + JSON カタログ）
     pixi.py                 Pixi CLI ラッパー
     models.py              データモデル
     manifest.py            基礎/feature/環境の依存関係スコープ解析
