@@ -24,6 +24,7 @@
   --sidebar-badge: #eef2f7;
   --sidebar-quick: #f8fafc;
   --sidebar-quick-hover: #eef4fb;
+  --sidebar-option-active: #e8f0ff;
   --sidebar-terminal: #e2e8f0;
   --modal-backdrop: rgba(226, 232, 240, .74);
   --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .06);
@@ -55,6 +56,7 @@
   --sidebar-badge: rgba(255, 255, 255, .08);
   --sidebar-quick: rgba(255, 255, 255, .035);
   --sidebar-quick-hover: rgba(255, 255, 255, .07);
+  --sidebar-option-active: #1d3350;
   --sidebar-terminal: rgba(255, 255, 255, .12);
   --modal-backdrop: rgba(4, 10, 18, .48);
   --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 28px rgba(0, 0, 0, .25);
@@ -164,7 +166,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .sidebar select option:checked,
 .sidebar select option:hover {
-  background-color: var(--sidebar-quick-hover);
+  background-color: var(--sidebar-option-active);
   color: var(--sidebar-text);
 }
 [data-theme="dark"] .sidebar select { color-scheme: dark; }
