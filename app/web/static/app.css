@@ -157,7 +157,17 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 12px;
 }
 .sidebar input::placeholder { color: var(--sidebar-placeholder); }
-.sidebar select { max-width: 100%; }
+.sidebar select { max-width: 100%; color-scheme: light; }
+.sidebar select option {
+  background-color: var(--sidebar);
+  color: var(--sidebar-text);
+}
+.sidebar select option:checked,
+.sidebar select option:hover {
+  background-color: var(--sidebar-quick-hover);
+  color: var(--sidebar-text);
+}
+[data-theme="dark"] .sidebar select { color-scheme: dark; }
 .sidebar-section { display: flex; flex-direction: column; min-height: 0; gap: 5px; }
 .section-title { display: flex; justify-content: space-between; color: var(--sidebar-muted); font-size: 12px; padding: 0 2px; }
 .badge { background: var(--sidebar-badge); border-radius: 999px; padding: 0 7px; }
