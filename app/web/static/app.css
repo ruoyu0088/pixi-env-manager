@@ -297,7 +297,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 
 /* ---------- Tables ---------- */
 .table-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-.package-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 980px; }
+.package-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1120px; }
 .package-table th, .package-table td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .package-table th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); font-weight: 600; z-index: 1; }
 .package-table tbody tr:hover { background: var(--accent-soft); cursor: pointer; }
@@ -353,6 +353,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .command-field .check-row { padding-top: 6px; }
 .command-notice { background: var(--accent-soft); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; }
 .command-actions { border-top: 1px solid var(--line); padding-top: 10px; }
+.command-form-header { align-items: flex-start; }
+.command-header-actions { flex: none; }
 .command-text { margin: 0; min-height: 120px; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 9px; font: 11px/1.5 Consolas, "Cascadia Mono", monospace; }
 .command-help-card .command-text { min-height: 240px; max-height: 420px; }
 .command-preview-card .command-text { min-height: 140px; }

@@ -122,6 +122,7 @@ class LibrariesTab(ttk.Frame):
             "scope",
             "spec",
             "source",
+            "license",
             "size",
         )
         self.tree = ttk.Treeview(
@@ -136,6 +137,7 @@ class LibrariesTab(ttk.Frame):
             "scope": "Scope",
             "spec": "Requested",
             "source": "Source",
+            "license": "License",
             "size": "Size",
         }
         widths = {
@@ -147,6 +149,7 @@ class LibrariesTab(ttk.Frame):
             "scope": 105,
             "spec": 180,
             "source": 200,
+            "license": 125,
             "size": 75,
         }
         for column in columns:
@@ -405,6 +408,7 @@ class LibrariesTab(ttk.Frame):
                         package.version,
                         package.requested_spec,
                         package.source,
+                        package.license,
                     )
                 ).lower()
                 if query not in haystack:
@@ -439,6 +443,7 @@ class LibrariesTab(ttk.Frame):
                     package.scope_text,
                     package.requested_spec or "",
                     package.short_source(),
+                    package.license or "—",
                     format_size(package.size),
                 ),
                 tags=tuple(tags),
@@ -488,6 +493,8 @@ class LibrariesTab(ttk.Frame):
                 return package.requested_spec
             if column == "source":
                 return package.short_source()
+            if column == "license":
+                return package.license
             if column == "size":
                 return package.size
             return package.name.casefold()

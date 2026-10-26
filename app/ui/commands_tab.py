@@ -33,6 +33,16 @@ class CommandsTab(ttk.Frame):
         ttk.Button(
             header, text="Pixi CLI Docs", command=self._open_docs
         ).pack(side="right")
+        ttk.Button(
+            header, text="Copy Command", command=self._copy_preview
+        ).pack(side="right", padx=(6, 0))
+        self.run_button = ttk.Button(
+            header,
+            text="Run",
+            style="Accent.TButton",
+            command=self._run_current,
+        )
+        self.run_button.pack(side="right", padx=(6, 0))
 
         paned = ttk.Panedwindow(self, orient="horizontal")
         paned.pack(fill="both", expand=True, pady=(10, 0))
@@ -68,8 +78,26 @@ class CommandsTab(ttk.Frame):
         self.form_scroll = ScrollableFrame(middle, style="TFrame")
         middle.add(self.form_scroll, weight=2)
 
-        help_frame = ttk.LabelFrame(middle, text="Command Help", padding=(8, 6))
-        middle.add(help_frame, weight=1)
+        side = ttk.Frame(middle)
+        middle.add(side, weight=1)
+
+        preview_frame = ttk.LabelFrame(side, text="Command Preview", padding=(8, 6))
+        preview_frame.pack(fill="x")
+        self.preview = tk.Text(
+            preview_frame,
+            height=3,
+            wrap="word",
+            font=self.app.theme.fonts.mono_small,
+            relief="flat",
+            borderwidth=0,
+            padx=6,
+            pady=4,
+            state="disabled",
+        )
+        self.preview.pack(fill="x")
+
+        help_frame = ttk.LabelFrame(side, text="Command Help", padding=(8, 6))
+        help_frame.pack(fill="both", expand=True, pady=(8, 0))
         self.help_text = tk.Text(
             help_frame,
             width=40,
@@ -87,34 +115,6 @@ class CommandsTab(ttk.Frame):
         self.help_text.configure(yscrollcommand=help_scroll.set)
         self.help_text.pack(side="left", fill="both", expand=True)
         help_scroll.pack(side="right", fill="y")
-
-        preview_frame = ttk.LabelFrame(right, text="Command Preview", padding=(8, 6))
-        preview_frame.pack(fill="x", pady=(8, 0))
-        self.preview = tk.Text(
-            preview_frame,
-            height=3,
-            wrap="word",
-            font=self.app.theme.fonts.mono_small,
-            relief="flat",
-            borderwidth=0,
-            padx=6,
-            pady=4,
-            state="disabled",
-        )
-        self.preview.pack(fill="x")
-
-        action_frame = ttk.Frame(right)
-        action_frame.pack(fill="x", pady=(8, 0))
-        self.run_button = ttk.Button(
-            action_frame,
-            text="Run",
-            style="Accent.TButton",
-            command=self._run_current,
-        )
-        self.run_button.pack(side="left")
-        ttk.Button(
-            action_frame, text="Copy Command", command=self._copy_preview
-        ).pack(side="left", padx=(6, 0))
 
         manual = ttk.LabelFrame(self, text="Manual Command", padding=(9, 7))
         manual.pack(fill="x", pady=(10, 0))

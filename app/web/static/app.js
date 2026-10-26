@@ -295,7 +295,7 @@
       if (filter === "user" && !pkg.is_explicit) return false;
       if (kind && String(pkg.kind).toLowerCase() !== kind) return false;
       if (query) {
-        const hay = `${pkg.name} ${pkg.version} ${pkg.requested_spec} ${pkg.source}`.toLowerCase();
+        const hay = `${pkg.name} ${pkg.version} ${pkg.requested_spec} ${pkg.source} ${pkg.license}`.toLowerCase();
         if (!hay.includes(query)) return false;
       }
       return true;
@@ -335,6 +335,7 @@
         <td><span class="scope-${escapeAttr(scope)}">${escapeHtml(scopeLabel(pkg.scope))}</span></td>
         <td>${escapeHtml(pkg.requested_spec || "")}</td>
         <td>${escapeHtml(pkg.source || "")}</td>
+        <td>${escapeHtml(pkg.license || "—")}</td>
         <td class="num">${escapeHtml(formatSize(pkg.size))}</td>
       </tr>`;
     }).join("");

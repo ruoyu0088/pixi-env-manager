@@ -137,6 +137,7 @@
                   <th data-i18n="Scope">Scope</th>
                   <th data-i18n="Requested">Requested</th>
                   <th data-i18n="Source">Source</th>
+                  <th data-i18n="License">License</th>
                   <th data-i18n="Size">Size</th>
                 </tr>
               </thead>
@@ -185,23 +186,18 @@
 
             <div class="command-main">
               <div class="card command-form-card">
-                <div class="card-header">
+                <div class="card-header command-form-header">
                   <div>
                     <h2 id="command-title" data-i18n="Command Center">Command Center</h2>
                     <p id="command-summary" class="muted"></p>
                   </div>
+                  <div class="actions command-header-actions">
+                    <button class="button button-primary" id="command-run" type="button" data-i18n="Run">Run</button>
+                    <button class="button" id="command-copy" type="button" data-i18n="Copy Command">Copy Command</button>
+                  </div>
                 </div>
                 <div id="command-base-notice" class="command-notice" hidden></div>
                 <div id="command-form" class="command-form"></div>
-                <div class="actions command-actions">
-                  <button class="button button-primary" id="command-run" type="button" data-i18n="Run">Run</button>
-                  <button class="button" id="command-copy" type="button" data-i18n="Copy Command">Copy Command</button>
-                </div>
-              </div>
-
-              <div class="card command-help-card">
-                <div class="card-header"><h2 data-i18n="Command Help">Command Help</h2></div>
-                <pre id="command-help" class="command-text"></pre>
               </div>
             </div>
 
@@ -209,6 +205,11 @@
               <div class="card command-preview-card">
                 <div class="card-header"><h2 data-i18n="Command Preview">Command Preview</h2></div>
                 <pre id="command-preview" class="command-text"></pre>
+              </div>
+
+              <div class="card command-help-card">
+                <div class="card-header"><h2 data-i18n="Command Help">Command Help</h2></div>
+                <pre id="command-help" class="command-text"></pre>
               </div>
             </div>
           </div>
